@@ -10,11 +10,11 @@ import Foundation
 // MARK: - Protocols
 
 public protocol NetworkClient_RequestAdapterProtocol {
-    func adapt(_ request: URLRequest) -> URLRequest
+    func adapt(_ request: URLRequest) async-> URLRequest
 }
 
 public protocol NetworkClient_RequestRetryProtocol {
-    func shouldRetry() async throws -> Bool
+    func shouldRetry(request: URLRequest) async throws -> Bool
 }
 
 public protocol NetworkClient_DecoderProvider {
@@ -99,7 +99,7 @@ private extension NetworkClient {
                 self.requestTasks.remove(key: requestKey)
             }
             
-            var request = adapter.adapt(initialRequest)
+            var request = await adapter.adapt(initialRequest)
         
             logging.log(request: request)
             
@@ -125,7 +125,7 @@ private extension NetworkClient {
                 return data
             case 401:
                 logging.log(response: httpResponse, with: data)
-                guard canRetry, try await retrier.shouldRetry() else {
+                guard canRetry, try await retrier.shouldRetry(request: request) else {
                     throw try decoder.decodeError(response: httpResponse, data: data)
                     // throw APIError(response: httpResponse, withData: data)
                 }
@@ -173,11 +173,11 @@ private func printIfDebug(data: Data) {
 
 
 private class PassthroughAdapter : NetworkClient.Adapter {
-    func adapt(_ request: URLRequest) -> URLRequest { request }
+    func adapt(_ request: URLRequest) async -> URLRequest { request }
 }
 
 private class FalseRetrier : NetworkClient.Retrier {
-    func shouldRetry() async throws -> Bool { false }
+    func shouldRetry(request: URLRequest) async throws -> Bool { false }
 }
 
 private class DefaultDecoder: NetworkClient.Decoder {

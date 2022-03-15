@@ -8,7 +8,7 @@
 import Foundation
 
 @available(iOS, deprecated: 15.0, message: "Use the built-in API instead 'data(for:)'")
-extension URLSession {
+public extension URLSession {
     func asyncData(from urlRequest: URLRequest) async throws -> (Data, URLResponse) {
         try await withCheckedThrowingContinuation { continuation in
             let task = self.dataTask(with: urlRequest) { data, response, error in
