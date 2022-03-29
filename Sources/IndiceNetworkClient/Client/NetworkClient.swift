@@ -195,7 +195,7 @@ private class DefaultDecoder: NetworkClient.Decoder {
                     .replacingOccurrences(of: "\"", with: "")
                     .lowercased()) as! T
         case is String.Type:
-            return  String(data: data, encoding: .utf8)! as! T
+            return String(decoding: data, as: UTF8.self) as! T
         default:
             return try defaultJSONDecoder.decode(T.self, from: data)
         }
