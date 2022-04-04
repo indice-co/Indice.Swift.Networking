@@ -32,15 +32,27 @@ public final class NetworkClient {
     public typealias Decoder = NetworkClient_DecoderProvider
     public typealias Logging = NetworkClient_RequestLogger
     
-    public static let shared = NetworkClient()
+    // public static let shared = NetworkClient()
     
-    public var adapter: Adapter = PassthroughAdapter()
-    public var retrier: Retrier = FalseRetrier()
-    public var decoder: Decoder = DefaultDecoder()
-    public var logging: Logging = DefaultLogger()
+    public let adapter: Adapter
+    public let retrier: Retrier
+    public let decoder: Decoder
+    public let logging: Logging
     
-    private var commonHeaders = [String: String]()
+    private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
+    
+    init(adapter: Adapter? = nil,
+         retrier: Retrier? = nil,
+         decoder: Decoder? = nil,
+         logging: Logging? = nil,
+         commonHeaders: [String: String]? = nil) {
+        self.adapter = adapter ?? PassthroughAdapter()
+        self.retrier = retrier ?? FalseRetrier()
+        self.decoder = decoder ?? DefaultDecoder()
+        self.logging = logging ?? DefaultLogger()
+        self.commonHeaders = commonHeaders ?? [:]
+    }
     
     public func addCommonHeader(name: String, value: String) {
         commonHeaders[name] = value
