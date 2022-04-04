@@ -26,12 +26,12 @@ public enum NetworkLoggingType {
 }
 
 public protocol NetworkClient_RequestLogger {
-   var tag   : String { get set }
-   var requestLevel  : NetworkLoggingLevel { get set }
-   var responseLevel : NetworkLoggingLevel { get set }
-
-   func log(_ message  :  String,  for: NetworkLoggingType)
-   func log(_ messages : [String], for: NetworkLoggingType)
-   func log(request  : URLRequest)
-   func log(response : HTTPURLResponse, with: Data?)
+    var tag   : String { get set }
+    var requestLevel  : NetworkLoggingLevel { get set }
+    var responseLevel : NetworkLoggingLevel { get set }
+    
+    func log(_ message  :  String,  for: NetworkLoggingType)
+    func log(_ messages : [String], for: NetworkLoggingType)
+    func log(request  : URLRequest)
+    func log(response : HTTPURLResponse, with: Data?)
 }
