@@ -42,7 +42,7 @@ public final class NetworkClient {
     private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
     
-    init(adapter: Adapter? = nil,
+    public init(adapter: Adapter? = nil,
          retrier: Retrier? = nil,
          decoder: Decoder? = nil,
          logging: Logging? = nil,
