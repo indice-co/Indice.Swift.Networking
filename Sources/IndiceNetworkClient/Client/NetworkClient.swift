@@ -226,8 +226,8 @@ private class DefaultDecoder: NetworkClient.Decoder {
 
 public extension NetworkClient.Logging {
     
-    func `default`(withRequestLogging  requestLevel  : NetworkLoggingLevel,
-                   withResponseLogging responseLevel : NetworkLoggingLevel) -> NetworkClient.Logging {
+    static func `default`(withRequestLogging  requestLevel  : NetworkLoggingLevel,
+                          withResponseLogging responseLevel : NetworkLoggingLevel) -> NetworkClient.Logging {
         let logger = DefaultLogger()
         logger.requestLevel  = requestLevel
         logger.responseLevel = responseLevel
