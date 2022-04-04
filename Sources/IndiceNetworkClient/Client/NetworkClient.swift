@@ -43,14 +43,14 @@ public final class NetworkClient {
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
     
     public init(adapter: Adapter? = nil,
-         retrier: Retrier? = nil,
-         decoder: Decoder? = nil,
-         logging: Logging? = nil,
-         commonHeaders: [String: String]? = nil) {
-        self.adapter = adapter ?? PassthroughAdapter()
-        self.retrier = retrier ?? FalseRetrier()
-        self.decoder = decoder ?? DefaultDecoder()
-        self.logging = logging ?? DefaultLogger()
+                retrier: Retrier? = nil,
+                decoder: Decoder? = nil,
+                logging: Logging? = nil,
+                commonHeaders: [String: String]? = nil) {
+        self.adapter = adapter ?? Configuration.defaultAdapter()
+        self.retrier = retrier ?? Configuration.defaultRetrier()
+        self.decoder = decoder ?? Configuration.defaultDecoder()
+        self.logging = logging ?? Configuration.defaultLogging()
         self.commonHeaders = commonHeaders ?? [:]
     }
     
@@ -95,7 +95,7 @@ private extension NetworkClient {
     private func dataFetch(request initialRequest: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
         let requestKey = customHash ?? initialRequest.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
-
+        
         requestTasks.remove(keys: keys)
         
         if let requestTask = requestTasks[requestKey] {
@@ -112,7 +112,7 @@ private extension NetworkClient {
             }
             
             var request = await adapter.adapt(initialRequest)
-        
+            
             logging.log(request: request)
             
             for (key, value) in commonHeaders {
@@ -183,6 +183,34 @@ private func printIfDebug(data: Data) {
 //    }
 //}
 
+public extension NetworkClient {
+
+    struct Configuration {
+
+        public static func defaultAdapter() -> some Adapter {
+            PassthroughAdapter()
+        }
+        
+        public static func defaultRetrier() -> some Retrier {
+            FalseRetrier()
+        }
+        
+        public static func defaultDecoder() -> some Decoder {
+            DefaultDecoder()
+        }
+        
+        public static func defaultLogging(withTag: String = "Network Logger",
+                                          requestLoggingLevel  requestLevel  : NetworkLoggingLevel = .full,
+                                          responseLoggingLevel responseLevel : NetworkLoggingLevel = .full) -> some Logging {
+            let logger = DefaultLogger()
+            logger.requestLevel  = requestLevel
+            logger.responseLevel = responseLevel
+            
+            return logger
+        }
+    }
+}
+
 
 private class PassthroughAdapter : NetworkClient.Adapter {
     func adapt(_ request: URLRequest) async -> URLRequest { request }
@@ -204,15 +232,15 @@ private class DefaultDecoder: NetworkClient.Decoder {
         switch T.self {
         case is Bool.Type:
             return Bool(String(data: data, encoding: .utf8)!
-                    .replacingOccurrences(of: "\"", with: "")
-                    .lowercased()) as! T
+                .replacingOccurrences(of: "\"", with: "")
+                .lowercased()) as! T
         case is String.Type:
             return String(decoding: data, as: UTF8.self) as! T
         default:
             return try defaultJSONDecoder.decode(T.self, from: data)
         }
     }
-
+    
     func decodeError(response: HTTPURLResponse, data: Data) throws -> APIError {
         do {
             return APIError(errorData: try defaultJSONDecoder.decode(ProblemDetails.self, from: data))
@@ -220,21 +248,7 @@ private class DefaultDecoder: NetworkClient.Decoder {
             return APIError(description: String(data: data, encoding: .utf8)!, code: response.statusCode)
         }
     }
-
-}
-
-
-public extension NetworkClient.Logging {
     
-    static func `default`(withTag: String = "Network Logger",
-                          requestLoggingLevel  requestLevel  : NetworkLoggingLevel = .full,
-                          responseLoggingLevel responseLevel : NetworkLoggingLevel = .full) -> some NetworkClient.Logging {
-        let logger = DefaultLogger()
-        logger.requestLevel  = requestLevel
-        logger.responseLevel = responseLevel
-
-        return logger
-    }
 }
 
 class DefaultLogger: NetworkClient.Logging {
@@ -262,7 +276,7 @@ class DefaultLogger: NetworkClient.Logging {
                 messages.append("--- \(prefix): \(url)")
             }
         }
-            
+        
         if requestLevel.contains(.headers) {
             request.allHTTPHeaderFields?.forEach {
                 messages.append("--- Header: \($0.key): \($0.value)")
@@ -290,7 +304,7 @@ class DefaultLogger: NetworkClient.Logging {
             if let url = response.url?.absoluteString {
                 messages.append("--- URL: \(url)")
             }
-        
+            
             messages.append("--- Status: \(response.statusCode)")
         }
         
