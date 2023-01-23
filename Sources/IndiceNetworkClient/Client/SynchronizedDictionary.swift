@@ -34,10 +34,14 @@ internal class SynchronizedDictionary<K: Hashable, V> {
         }
     }
     
-    func remove(key: Dictionary<K, V>.Key) {
+    @discardableResult
+    func remove(key: Dictionary<K, V>.Key) -> V? {
+        var result: V?
         queue.sync(flags: DispatchWorkItemFlags.barrier) {
-            _ = self.dictionary.removeValue(forKey: key)
+            result = self.dictionary.removeValue(forKey: key)
         }
+        
+        return result
     }
     
     func remove(keys: Dictionary<K, V>.Keys) {

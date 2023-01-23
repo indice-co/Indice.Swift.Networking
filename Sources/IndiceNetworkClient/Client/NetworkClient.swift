@@ -113,11 +113,11 @@ private extension NetworkClient {
             
             var request = await adapter.adapt(initialRequest)
             
-            logging.log(request: request)
-            
             for (key, value) in commonHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
+            
+            logging.log(request: request)
             
             let (data, response): (Data, URLResponse) = try await {
                 if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
