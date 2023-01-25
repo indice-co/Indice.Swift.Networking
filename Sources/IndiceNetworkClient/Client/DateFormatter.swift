@@ -8,7 +8,7 @@
 import Foundation
 
 // https://stackoverflow.com/a/50281094/976628
-public class OpenISO8601DateFormatter: DateFormatter {
+public class TryDateFormatter: DateFormatter {
     static let alternate: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .iso8601)
@@ -36,11 +36,17 @@ public class OpenISO8601DateFormatter: DateFormatter {
         return formatter
     }()
     
+    private var formatters: [DateFormatter] = []
+    
     private func setup() {
         calendar = Calendar(identifier: .iso8601)
         locale = Locale(identifier: "en_US_POSIX")
         timeZone = TimeZone(secondsFromGMT: 0)
         dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"
+        
+        self.formatters = [Self.alternate,
+                           Self.noSeconds,
+                           Self.noZeconds]
     }
 
     override init() {
@@ -54,18 +60,12 @@ public class OpenISO8601DateFormatter: DateFormatter {
     }
 
     override public func date(from string: String) -> Date? {
-        if let result = super.date(from: string) {
-            return result
+        for formatter in [self] + formatters {
+            if let result = formatter.date(from: string) {
+                return result
+            }
         }
         
-        if let result = OpenISO8601DateFormatter.alternate.date(from: string) {
-            return result
-        }
-        
-        if let result = OpenISO8601DateFormatter.noSeconds.date(from: string) {
-            return result
-        }
-        
-        return OpenISO8601DateFormatter.noZeconds.date(from: string)
+        return nil
     }
 }

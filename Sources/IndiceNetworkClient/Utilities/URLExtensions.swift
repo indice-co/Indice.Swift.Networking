@@ -9,7 +9,6 @@ import Foundation
 
 public extension URL {
 
-    /// SwifterSwift: Dictionary of the URL's query parameters
     var queryParameters: [String: String]? {
         guard
             let components = URLComponents(url: self, resolvingAgainstBaseURL: false),
