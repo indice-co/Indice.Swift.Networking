@@ -49,18 +49,22 @@ public class TryDateFormatter: DateFormatter {
                            Self.noZeconds]
     }
 
-    override init() {
+    public override init() {
         super.init()
         setup()
     }
 
-    required init?(coder aDecoder: NSCoder) {
+    public required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         setup()
     }
 
     override public func date(from string: String) -> Date? {
-        for formatter in [self] + formatters {
+        if let result = super.date(from: string) {
+            return result
+        }
+        
+        for formatter in formatters {
             if let result = formatter.date(from: string) {
                 return result
             }

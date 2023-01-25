@@ -12,25 +12,27 @@ import Foundation
 
 public final class NetworkClient {
     
+    public typealias Result = (Data, URLResponse)
+    
     public typealias Interceptor = InterceptorProtocol
     public typealias Retrier = RetrierProtocol
     public typealias Decoder = DecoderProtocol
     public typealias Logging = NetworkLogger
     
-    private let adapter: Interceptor
-    private let retrier: Retrier
-    private let decoder: Decoder
-    private let logging: Logging
+    private let interceptors : [Interceptor]
+    private let retrier : Retrier
+    private let decoder : Decoder
+    private let logging : Logging
     
     private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
     
-    public init(adapter: Interceptor = .default,
+    public init(interceptors: [Interceptor] = [],
                 retrier: Retrier = .default,
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 commonHeaders: [String: String] = [:]) {
-        self.adapter = adapter
+        self.interceptors = interceptors
         self.retrier = retrier
         self.decoder = decoder
         self.logging = logging
@@ -75,6 +77,33 @@ public final class NetworkClient {
 
 private extension NetworkClient {
     
+    private func finalFetch(_ request: URLRequest) async throws -> Result {
+        
+        logging.log(request: request)
+        
+        return try await {
+            if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
+                return try await URLSession.shared.data(for: request)
+            } else {
+                return try await URLSession.shared.asyncData(from: request)
+            }
+        }()
+    }
+    
+    private func processRequest(_ request: URLRequest, withInterceptor interceptors: [Interceptor]) async throws -> Result {
+        guard !interceptors.isEmpty else {
+            return try await finalFetch(request)
+        }
+        
+        var interceptorList = interceptors
+        let current = interceptorList.removeFirst()
+        
+        return try await current.process(request) { [weak self] processedRequest in
+            guard let self = self else { throw APIError.Unknown }
+            return try await self.processRequest(processedRequest, withInterceptor: interceptorList)
+        }
+    }
+    
     private func dataFetch(request initialRequest: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
         let requestKey = customHash ?? initialRequest.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
@@ -94,7 +123,7 @@ private extension NetworkClient {
                 self.requestTasks.remove(key: requestKey)
             }
             
-            var request = await adapter.adapt(initialRequest)
+            var request = initialRequest // try await adapter.process(initialRequest)
             
             for (key, value) in commonHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
@@ -102,13 +131,8 @@ private extension NetworkClient {
             
             logging.log(request: request)
             
-            let (data, response): (Data, URLResponse) = try await {
-                if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                    return try await URLSession.shared.data(for: request)
-                } else {
-                    return try await URLSession.shared.asyncData(from: request)
-                }
-            }()
+            
+            let (data, response): Result = try await processRequest(request, withInterceptor: interceptors)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.init(description: "Invalid HttpResponse from server.")

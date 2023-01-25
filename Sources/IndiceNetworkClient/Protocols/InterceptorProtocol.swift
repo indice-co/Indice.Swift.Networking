@@ -8,13 +8,15 @@
 import Foundation
 
 
-public protocol InterceptorProtocol {
-    func adapt(_ request: URLRequest) async-> URLRequest
+public protocol InterceptorProtocol: AnyObject {
+    func process(_ request: URLRequest, completion: (URLRequest) async throws -> NetworkClient.Result) async throws -> NetworkClient.Result
 }
 
 
 public class PassthroughAdapter : InterceptorProtocol {
-    public func adapt(_ request: URLRequest) async -> URLRequest { request }
+    public func process(_ request: URLRequest, completion: (URLRequest) async throws -> NetworkClient.Result) async throws -> NetworkClient.Result {
+        try await completion(request)
+    }
 }
 
 public extension InterceptorProtocol where Self == PassthroughAdapter  {
