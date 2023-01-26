@@ -9,7 +9,6 @@ import Foundation
 
 public protocol DecoderProtocol {
     func decode<T: Decodable>(data: Data) throws -> T
-    func decodeError(response: HTTPURLResponse, data: Data) throws -> APIError
 }
 
 
@@ -31,14 +30,6 @@ public class DefaultDecoder: DecoderProtocol {
             return String(decoding: data, as: UTF8.self) as! T
         default:
             return try defaultJSONDecoder.decode(T.self, from: data)
-        }
-    }
-    
-    public func decodeError(response: HTTPURLResponse, data: Data) throws -> APIError {
-        do {
-            return APIError(errorData: try defaultJSONDecoder.decode(ProblemDetails.self, from: data))
-        } catch {
-            return APIError(description: String(data: data, encoding: .utf8)!, code: response.statusCode)
         }
     }
     

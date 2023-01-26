@@ -49,7 +49,7 @@ public final class NetworkClient {
     
     public func get<D: Decodable>(path: String) async throws -> D {
         guard let url = URL(string: path) else {
-            throw APIError(description: "Invalid URL: \(path)")
+            throw APIError(description: "Invalid URL: \(path)", code: nil)
         }
         return try await fetch(request: URLRequest(url: url))
     }
@@ -90,7 +90,7 @@ private extension NetworkClient {
         }()
     }
     
-    private func processRequest(_ request: URLRequest, withInterceptor interceptors: [Interceptor]) async throws -> Result {
+    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> Result {
         guard !interceptors.isEmpty else {
             return try await finalFetch(request)
         }
@@ -100,7 +100,7 @@ private extension NetworkClient {
         
         return try await current.process(request) { [weak self] processedRequest in
             guard let self = self else { throw APIError.Unknown }
-            return try await self.processRequest(processedRequest, withInterceptor: interceptorList)
+            return try await self.processRequest(processedRequest, withInterceptors: interceptorList)
         }
     }
     
@@ -132,10 +132,10 @@ private extension NetworkClient {
             logging.log(request: request)
             
             
-            let (data, response): Result = try await processRequest(request, withInterceptor: interceptors)
+            let (data, response) = try await processRequest(request, withInterceptors: interceptors)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.init(description: "Invalid HttpResponse from server.")
+                throw APIError.InvalidResponse
             }
             
             switch httpResponse.statusCode {
@@ -145,8 +145,7 @@ private extension NetworkClient {
             case 401:
                 logging.log(response: httpResponse, with: data)
                 guard canRetry, try await retrier.shouldRetry(request: request) else {
-                    throw try decoder.decodeError(response: httpResponse, data: data)
-                    // throw APIError(response: httpResponse, withData: data)
+                    throw APIError(response: httpResponse, data: data)
                 }
                 
                 guard canRetry else {
@@ -157,10 +156,8 @@ private extension NetworkClient {
                                            customHash: requestKey.hashValue,
                                            canRetry: false)
             default:
-                // TODO: Specific errors
                 logging.log(response: httpResponse, with: nil)
-                // throw APIError(response: httpResponse, withData: data)
-                throw try decoder.decodeError(response: httpResponse, data: data)
+                throw APIError(response: httpResponse, data: data)
             }
         }
         
