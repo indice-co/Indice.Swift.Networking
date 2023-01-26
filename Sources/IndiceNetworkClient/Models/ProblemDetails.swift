@@ -14,11 +14,11 @@ public protocol NetworkError: Codable {
 
 public struct ProblemDetails: NetworkError {
     
-    public let detail : String?
-    public let errors : [String:[String]]?
-    public let status : Int?
-    public let title : String?
-    public let type : String?
+    public let detail: String?
+    public let errors: [String:[String]]?
+    public let status: Int?
+    public let title: String?
+    public let type: String?
     
     public let error_description: String?
     

@@ -7,51 +7,36 @@
 
 import Foundation
 
-// MARK: - Protocols
-
-public protocol NetworkClient_RequestAdapterProtocol {
-    func adapt(_ request: URLRequest) async-> URLRequest
-}
-
-public protocol NetworkClient_RequestRetryProtocol {
-    func shouldRetry(request: URLRequest) async throws -> Bool
-}
-
-public protocol NetworkClient_DecoderProvider {
-    func decode<T: Decodable>(data: Data) throws -> T
-    func decodeError(response: HTTPURLResponse, data: Data) throws -> APIError
-}
-
 
 // MARK: - Client Implementation
 
 public final class NetworkClient {
     
-    public typealias Adapter = NetworkClient_RequestAdapterProtocol
-    public typealias Retrier = NetworkClient_RequestRetryProtocol
-    public typealias Decoder = NetworkClient_DecoderProvider
-    public typealias Logging = NetworkClient_RequestLogger
+    public typealias Result = (Data, URLResponse)
     
-    // public static let shared = NetworkClient()
+    public typealias Interceptor = InterceptorProtocol
+    public typealias Retrier = RetrierProtocol
+    public typealias Decoder = DecoderProtocol
+    public typealias Logging = NetworkLogger
     
-    public let adapter: Adapter
-    public let retrier: Retrier
-    public let decoder: Decoder
-    public let logging: Logging
+    private let interceptors : [Interceptor]
+    private let retrier : Retrier
+    private let decoder : Decoder
+    private let logging : Logging
     
     private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
     
-    public init(adapter: Adapter? = nil,
-                retrier: Retrier? = nil,
-                decoder: Decoder? = nil,
-                logging: Logging? = nil,
-                commonHeaders: [String: String]? = nil) {
-        self.adapter = adapter ?? Configuration.defaultAdapter()
-        self.retrier = retrier ?? Configuration.defaultRetrier()
-        self.decoder = decoder ?? Configuration.defaultDecoder()
-        self.logging = logging ?? Configuration.defaultLogging()
-        self.commonHeaders = commonHeaders ?? [:]
+    public init(interceptors: [Interceptor] = [],
+                retrier: Retrier = .default,
+                decoder: Decoder = .default,
+                logging: Logging = .default,
+                commonHeaders: [String: String] = [:]) {
+        self.interceptors = interceptors
+        self.retrier = retrier
+        self.decoder = decoder
+        self.logging = logging
+        self.commonHeaders = commonHeaders
     }
     
     public func addCommonHeader(name: String, value: String) {
@@ -92,6 +77,33 @@ public final class NetworkClient {
 
 private extension NetworkClient {
     
+    private func finalFetch(_ request: URLRequest) async throws -> Result {
+        
+        logging.log(request: request)
+        
+        return try await {
+            if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
+                return try await URLSession.shared.data(for: request)
+            } else {
+                return try await URLSession.shared.asyncData(from: request)
+            }
+        }()
+    }
+    
+    private func processRequest(_ request: URLRequest, withInterceptor interceptors: [Interceptor]) async throws -> Result {
+        guard !interceptors.isEmpty else {
+            return try await finalFetch(request)
+        }
+        
+        var interceptorList = interceptors
+        let current = interceptorList.removeFirst()
+        
+        return try await current.process(request) { [weak self] processedRequest in
+            guard let self = self else { throw APIError.Unknown }
+            return try await self.processRequest(processedRequest, withInterceptor: interceptorList)
+        }
+    }
+    
     private func dataFetch(request initialRequest: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
         let requestKey = customHash ?? initialRequest.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
@@ -111,21 +123,16 @@ private extension NetworkClient {
                 self.requestTasks.remove(key: requestKey)
             }
             
-            var request = await adapter.adapt(initialRequest)
-            
-            logging.log(request: request)
+            var request = initialRequest // try await adapter.process(initialRequest)
             
             for (key, value) in commonHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
             
-            let (data, response): (Data, URLResponse) = try await {
-                if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                    return try await URLSession.shared.data(for: request)
-                } else {
-                    return try await URLSession.shared.asyncData(from: request)
-                }
-            }()
+            logging.log(request: request)
+            
+            
+            let (data, response): Result = try await processRequest(request, withInterceptor: interceptors)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.init(description: "Invalid HttpResponse from server.")
@@ -162,178 +169,3 @@ private extension NetworkClient {
     }
 }
 
-private func printIfDebug(data: Data) {
-#if DEBUG
-    if let stringResponse: String = String(data: data, encoding: .utf8) {
-        print(stringResponse)
-    } else {
-        print("Cannot parse data response as String")
-    }
-#endif
-}
-
-//private func handleNetworkResponse(response: HTTPURLResponse) -> NetworkError? {
-//    switch response.statusCode {
-//    case 200...299: return (nil)
-//    case 300...399: return (NetworkError.redirectionError)
-//    case 400...499: return (NetworkError.clientError)
-//    case 500...599: return (NetworkError.serverError)
-//    case 600: return (NetworkError.invalidRequest)
-//    default: return (NetworkError.unknownError)
-//    }
-//}
-
-public extension NetworkClient {
-
-    struct Configuration {
-
-        public static func defaultAdapter() -> some Adapter {
-            PassthroughAdapter()
-        }
-        
-        public static func defaultRetrier() -> some Retrier {
-            FalseRetrier()
-        }
-        
-        public static func defaultDecoder() -> some Decoder {
-            DefaultDecoder()
-        }
-        
-        public static func defaultLogging(withTag: String = "Network Logger",
-                                          requestLoggingLevel  requestLevel  : NetworkLoggingLevel = .full,
-                                          responseLoggingLevel responseLevel : NetworkLoggingLevel = .full) -> some Logging {
-            let logger = DefaultLogger()
-            logger.requestLevel  = requestLevel
-            logger.responseLevel = responseLevel
-            
-            return logger
-        }
-    }
-}
-
-
-private class PassthroughAdapter : NetworkClient.Adapter {
-    func adapt(_ request: URLRequest) async -> URLRequest { request }
-}
-
-private class FalseRetrier : NetworkClient.Retrier {
-    func shouldRetry(request: URLRequest) async throws -> Bool { false }
-}
-
-private class DefaultDecoder: NetworkClient.Decoder {
-    
-    private let defaultJSONDecoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .formatted(OpenISO8601DateFormatter())
-        return decoder
-    }()
-    
-    func decode<T: Decodable>(data: Data) throws -> T {
-        switch T.self {
-        case is Bool.Type:
-            return Bool(String(data: data, encoding: .utf8)!
-                .replacingOccurrences(of: "\"", with: "")
-                .lowercased()) as! T
-        case is String.Type:
-            return String(decoding: data, as: UTF8.self) as! T
-        default:
-            return try defaultJSONDecoder.decode(T.self, from: data)
-        }
-    }
-    
-    func decodeError(response: HTTPURLResponse, data: Data) throws -> APIError {
-        do {
-            return APIError(errorData: try defaultJSONDecoder.decode(ProblemDetails.self, from: data))
-        } catch {
-            return APIError(description: String(data: data, encoding: .utf8)!, code: response.statusCode)
-        }
-    }
-    
-}
-
-class DefaultLogger: NetworkClient.Logging {
-    
-    var tag = "Network Logger"
-    var requestLevel  = NetworkLoggingLevel.full
-    var responseLevel = NetworkLoggingLevel.full
-    
-    private func canPrint(for type: NetworkLoggingType) -> Bool {
-        (type == .request ? requestLevel : responseLevel) != .off
-    }
-    
-    private func createMessage(from messages: [String]) -> [String] {
-        messages.map { tag + ":: " + $0 }
-    }
-    
-    func log(request: URLRequest) {
-        guard canPrint(for: .request) else { return }
-        var messages = ["START --->"]
-        
-        if requestLevel.contains(.status) {
-            let prefix = request.method?.rawValue.uppercased() ?? "URL"
-            
-            if let url = request.url?.absoluteString {
-                messages.append("--- \(prefix): \(url)")
-            }
-        }
-        
-        if requestLevel.contains(.headers) {
-            request.allHTTPHeaderFields?.forEach {
-                messages.append("--- Header: \($0.key): \($0.value)")
-            }
-        }
-        
-        if requestLevel.contains(.body), let bodyData = request.httpBody {
-            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []),
-               let dict = body as? [String : Any] {
-                messages.append("--- Body: \(dict)")
-            }
-        }
-        
-        messages.append("END ----->")
-        
-        log(messages, for: .request)
-    }
-    
-    func log(response: HTTPURLResponse, with data: Data?) {
-        guard canPrint(for: .response) else { return }
-        
-        var messages = ["START <---"]
-        
-        if responseLevel.contains(.status) {
-            if let url = response.url?.absoluteString {
-                messages.append("--- URL: \(url)")
-            }
-            
-            messages.append("--- Status: \(response.statusCode)")
-        }
-        
-        if responseLevel.contains(.headers) {
-            response.allHeaderFields.forEach {
-                messages.append("--- Header: \($0.key): \($0.value)")
-            }
-        }
-        
-        if responseLevel.contains(.body), let bodyData = data {
-            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []) {
-                messages.append("--- Response Body: \(body)")
-            }
-        }
-        
-        messages.append("END <-----")
-        
-        log(messages, for: .response)
-    }
-    
-    func log(_ message: String, for type: NetworkLoggingType) {
-        guard canPrint(for: type) else { return }
-        log([message], for: type)
-    }
-    
-    func log(_ messages: [String], for type: NetworkLoggingType) {
-        guard canPrint(for: type) else { return }
-        createMessage(from: messages).forEach { print($0) }
-        print()
-    }
-    
-}
