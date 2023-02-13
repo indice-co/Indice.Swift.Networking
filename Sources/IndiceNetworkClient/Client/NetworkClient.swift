@@ -20,19 +20,26 @@ public final class NetworkClient {
     public typealias Logging = NetworkLogger
     
     private let interceptors : [Interceptor]
-    private let retrier : Retrier
-    private let decoder : Decoder
-    private let logging : Logging
+    private let retrier  : Retrier
+    private let decoder  : Decoder
+    private let logging  : Logging
+    private var session: URLSession?
     
     private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
+    
+    private lazy var urlSession: URLSession = {
+        session ?? URLSession.shared
+    }()
     
     public init(interceptors: [Interceptor] = [],
                 retrier: Retrier = .default,
                 decoder: Decoder = .default,
                 logging: Logging = .default,
+                session: URLSession? = nil,
                 commonHeaders: [String: String] = [:]) {
         self.interceptors = interceptors
+        self.session = session
         self.retrier = retrier
         self.decoder = decoder
         self.logging = logging
@@ -83,9 +90,9 @@ private extension NetworkClient {
         
         return try await {
             if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                return try await URLSession.shared.data(for: request)
+                return try await urlSession.data(for: request)
             } else {
-                return try await URLSession.shared.asyncData(from: request)
+                return try await urlSession.asyncData(from: request)
             }
         }()
     }
@@ -123,8 +130,7 @@ private extension NetworkClient {
                 self.requestTasks.remove(key: requestKey)
             }
             
-            var request = initialRequest // try await adapter.process(initialRequest)
-            
+            var request = initialRequest
             for (key, value) in commonHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
