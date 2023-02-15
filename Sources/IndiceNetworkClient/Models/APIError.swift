@@ -31,7 +31,7 @@ public struct APIError: LocalizedError {
                   data: data)
     }
 
-    func getError<T: Decodable>(using decoder: DecoderProtocol?) -> T? {
+    public func getError<T: Decodable>(using decoder: DecoderProtocol?) -> T? {
         if let errorData = raw {
             if let decoder = decoder {
                 return try? decoder.decode(data: errorData)
