@@ -135,9 +135,6 @@ private extension NetworkClient {
                 request.setValue(value, forHTTPHeaderField: key)
             }
             
-            logging.log(request: request)
-            
-            
             let (data, response) = try await processRequest(request, withInterceptors: interceptors)
             
             guard let httpResponse = response as? HTTPURLResponse else {
