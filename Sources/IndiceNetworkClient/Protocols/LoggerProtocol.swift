@@ -39,7 +39,7 @@ public protocol NetworkLogger {
 
 public class DefaultLogger: NetworkLogger {
     
-    static let defaultTag = "Network Logger"
+    public static let defaultTag = "Network Logger"
     
     public var tag: String
     public var requestLevel  :NetworkLoggingLevel
@@ -80,9 +80,10 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if requestLevel.contains(.body), let bodyData = request.httpBody {
-            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []),
-               let dict = body as? [String : Any] {
-                messages.append("--- Body: \(dict)")
+            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []) {
+                "\(body)".split(whereSeparator: \.isNewline).forEach {
+                    messages.append("--- Body: \($0)")
+                }
             }
         }
         
@@ -112,7 +113,9 @@ public class DefaultLogger: NetworkLogger {
         
         if responseLevel.contains(.body), let bodyData = data {
             if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []) {
-                messages.append("--- Response Body: \(body)")
+                "\(body)".split(whereSeparator: \.isNewline).forEach {
+                    messages.append("--- Response Body: \($0)")
+                }
             }
         }
         

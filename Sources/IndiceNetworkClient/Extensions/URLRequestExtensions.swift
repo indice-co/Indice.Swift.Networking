@@ -29,20 +29,26 @@ extension URLRequest {
         case authorisation (auth: String)
         case accept        (type: ContentType)
         case content       (type: ContentType)
+        case language      (value: String)
+        case custom        (name: String, value: String)
         
         public var name: String {
             switch self {
-            case .authorisation : return "Authorization"
-            case .accept        : return "Accept"
-            case .content       : return "Content-Type"
+            case .authorisation       : return "Authorization"
+            case .accept              : return "Accept"
+            case .content             : return "Content-Type"
+            case .language            : return "Accept-Language"
+            case .custom(let name, _) : return name
             }
         }
         
         public var value: String {
             switch self {
-            case .authorisation(let token) : return token
-            case .accept       (let type)  : return type.rawValue
-            case .content      (let type)  : return type.rawValue
+            case .authorisation(let token)    : return token
+            case .accept       (let type)     : return type.rawValue
+            case .content      (let type)     : return type.rawValue
+            case .language     (let value)    : return value
+            case .custom       (_, let value) : return value
             }
         }
     }
