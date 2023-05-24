@@ -26,7 +26,7 @@ public struct APIError: LocalizedError {
     }
     
     public init(response: HTTPURLResponse, data: Data?) {
-        self.init(description: response.description,
+        self.init(description: HTTPURLResponse.localizedString(forStatusCode: response.statusCode),
                   code: response.statusCode,
                   data: data)
     }
