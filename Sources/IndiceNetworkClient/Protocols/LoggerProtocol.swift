@@ -76,21 +76,22 @@ public class DefaultLogger: NetworkLogger {
             return
         }
         
-        
-        
         guard let cType = contentType else {
             defaultPrintBody()
             return
         }
     
         func isContentType(_ type: URLRequest.ContentType) -> Bool {
-            cType.contains(type.rawValue)
+            if cType.contains(type.rawValue) {
+                messages.append("--- Body: Content-Type \(cType)")
+                return true
+            }
+            
+            return false
         }
-    
         
         if isContentType(.json) {
             if let body = try? JSONSerialization.jsonObject(with: body, options: []) {
-                messages.append("--- Body: Content Type application/json")
                 "\(body)".split(whereSeparator: \.isNewline).forEach {
                     messages.append("--- Body: \($0)")
                 }
@@ -100,7 +101,6 @@ public class DefaultLogger: NetworkLogger {
         
         if isContentType(.url) {
             if let body = String(data: body, encoding: .utf8) {
-                messages.append("--- Body: Content Type x-www-form-urlencoded")
                 body.components(separatedBy: "&").forEach {
                     messages.append("--- Body: \($0)")
                 }
