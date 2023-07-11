@@ -42,14 +42,18 @@ public class DefaultLogger: NetworkLogger {
     public static let defaultTag = "Network Logger"
     
     public var tag: String
-    public var requestLevel  :NetworkLoggingLevel
-    public var responseLevel :NetworkLoggingLevel
+    public var requestLevel  : NetworkLoggingLevel
+    public var responseLevel : NetworkLoggingLevel
+    
+    private var expectedType: String?
     
     init(tag: String   = defaultTag,
          requestLevel  : NetworkLoggingLevel = .full,
-         responseLevel : NetworkLoggingLevel = .full) {
+         responseLevel : NetworkLoggingLevel = .full,
+         expectedType  : String? = "application/json") {
         self.tag = tag
-        self.requestLevel = requestLevel
+        self.expectedType  = expectedType
+        self.requestLevel  = requestLevel
         self.responseLevel = responseLevel
     }
     
@@ -59,6 +63,52 @@ public class DefaultLogger: NetworkLogger {
     
     private func createMessage(from messages: [String]) -> [String] {
         messages.map { tag + ":: " + $0 }
+    }
+    
+    private func log(body: Data?, ofType contentType: String?, on messages: inout [String]) {
+        guard let body else { return }
+        
+        func defaultPrintBody() {
+            if let bodyString = String(data: body, encoding: .utf8) {
+                messages.append("--- Body: Unhandled Content Type (\(String(describing: contentType))")
+                messages.append("--- Body: \(bodyString)")
+            }
+            return
+        }
+        
+        guard let cType = contentType else {
+            defaultPrintBody()
+            return
+        }
+    
+        func isContentType(_ type: URLRequest.ContentType) -> Bool {
+            if cType.contains(type.rawValue) {
+                messages.append("--- Body: Content-Type \(cType)")
+                return true
+            }
+            
+            return false
+        }
+        
+        if isContentType(.json) {
+            if let body = try? JSONSerialization.jsonObject(with: body, options: []) {
+                "\(body)".split(whereSeparator: \.isNewline).forEach {
+                    messages.append("--- Body: \($0)")
+                }
+            }
+            return
+        }
+        
+        if isContentType(.url) {
+            if let body = String(data: body, encoding: .utf8) {
+                body.components(separatedBy: "&").forEach {
+                    messages.append("--- Body: \($0)")
+                }
+            }
+            return
+        }
+        
+        defaultPrintBody()
     }
     
     public func log(request: URLRequest) {
@@ -79,12 +129,9 @@ public class DefaultLogger: NetworkLogger {
             }
         }
         
-        if requestLevel.contains(.body), let bodyData = request.httpBody {
-            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []) {
-                "\(body)".split(whereSeparator: \.isNewline).forEach {
-                    messages.append("--- Body: \($0)")
-                }
-            }
+        if requestLevel.contains(.body) {
+            let contentType = request.allHTTPHeaderFields?["Content-Type"] ?? expectedType
+            log(body: request.httpBody, ofType: contentType, on: &messages)
         }
         
         messages.append("END ----->")
@@ -111,12 +158,9 @@ public class DefaultLogger: NetworkLogger {
             }
         }
         
-        if responseLevel.contains(.body), let bodyData = data {
-            if let body = try? JSONSerialization.jsonObject(with: bodyData, options: []) {
-                "\(body)".split(whereSeparator: \.isNewline).forEach {
-                    messages.append("--- Response Body: \($0)")
-                }
-            }
+        if responseLevel.contains(.body) {
+            let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? expectedType
+            log(body: data, ofType: contentType, on: &messages)
         }
         
         messages.append("END <-----")
