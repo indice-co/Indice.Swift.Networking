@@ -130,7 +130,7 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if requestLevel.contains(.body) {
-            let contentType = request.allHTTPHeaderFields?["Content-Type"] ?? "application/json"
+            let contentType = request.allHTTPHeaderFields?["Content-Type"] ?? expectedType
             log(body: request.httpBody, ofType: contentType, on: &messages)
         }
         
@@ -159,7 +159,7 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if responseLevel.contains(.body) {
-            let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? "application/json"
+            let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? expectedType
             log(body: data, ofType: contentType, on: &messages)
         }
         
