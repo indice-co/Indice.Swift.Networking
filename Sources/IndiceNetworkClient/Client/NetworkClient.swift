@@ -15,12 +15,10 @@ public final class NetworkClient {
     public typealias Result = (Data, URLResponse)
     
     public typealias Interceptor = InterceptorProtocol
-    public typealias Retrier = RetrierProtocol
     public typealias Decoder = DecoderProtocol
     public typealias Logging = NetworkLogger
     
     private let interceptors : [Interceptor]
-    private let retrier  : Retrier
     private let decoder  : Decoder
     private let logging  : Logging
     private var session: URLSession?
@@ -33,14 +31,12 @@ public final class NetworkClient {
     }()
     
     public init(interceptors: [Interceptor] = [],
-                retrier: Retrier = .default,
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 commonHeaders: [String: String] = [:]) {
         self.interceptors = interceptors
         self.session = session
-        self.retrier = retrier
         self.decoder = decoder
         self.logging = logging
         self.commonHeaders = commonHeaders
@@ -84,20 +80,33 @@ public final class NetworkClient {
 
 private extension NetworkClient {
     
-    private func finalFetch(_ request: URLRequest) async throws -> Result {
+    private func finalFetch(_ request: URLRequest) async throws -> Data {
         
         logging.log(request: request)
         
-        return try await {
+        let (data, response) = try await {
             if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
                 return try await urlSession.data(for: request)
             } else {
                 return try await urlSession.asyncData(from: request)
             }
         }()
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.InvalidResponse
+        }
+        
+        switch httpResponse.statusCode {
+        case 200...299:
+            logging.log(response: httpResponse, with: data)
+            return data
+        default:
+            logging.log(response: httpResponse, with: nil)
+            throw APIError(response: httpResponse, data: data)
+        }
     }
     
-    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> Result {
+    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> Data {
         guard !interceptors.isEmpty else {
             return try await finalFetch(request)
         }
@@ -135,33 +144,7 @@ private extension NetworkClient {
                 request.setValue(value, forHTTPHeaderField: key)
             }
             
-            let (data, response) = try await processRequest(request, withInterceptors: interceptors)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.InvalidResponse
-            }
-            
-            switch httpResponse.statusCode {
-            case 200...299:
-                logging.log(response: httpResponse, with: data)
-                return data
-            case 401:
-                logging.log(response: httpResponse, with: data)
-                guard canRetry, try await retrier.shouldRetry(request: request) else {
-                    throw APIError(response: httpResponse, data: data)
-                }
-                
-                guard canRetry else {
-                    throw APIError.Unauthenticated
-                }
-                
-                return try await dataFetch(request: request,
-                                           customHash: requestKey.hashValue,
-                                           canRetry: false)
-            default:
-                logging.log(response: httpResponse, with: nil)
-                throw APIError(response: httpResponse, data: data)
-            }
+            return try await processRequest(request, withInterceptors: interceptors)
         }
         
         self.requestTasks[requestKey] = task
