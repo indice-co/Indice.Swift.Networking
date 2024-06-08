@@ -59,10 +59,30 @@ extension URLRequest {
 
 extension URLRequest {
     
+    /** Adds a value to a header field.
+     
+        Any existing value of the header field will be replaced.
+    */
+    public mutating func set(header: HeaderType) {
+        setValue(header.value, forHTTPHeaderField: header.name)
+    }
+    
+    /** Adds a value to a header field. */
     public mutating func add(header: HeaderType) {
         addValue(header.value, forHTTPHeaderField: header.name)
     }
     
+    /** Adds a value to a header field.
+     
+        Any existing value of the header field will be replaced.
+    */
+    public func setting(header: HeaderType) -> URLRequest {
+        var request = self
+        request.set(header: header)
+        return request
+    }
+    
+    /** Adds a value to a header field. */
     public func adding(header: HeaderType) -> URLRequest {
         var request = self
         request.add(header: header)
