@@ -7,5 +7,10 @@ Swift Library containing http related stuff as well as rest helpers and encoding
 
 ## Installation
 
-To install Indice.Swift.Networking in your project add the clone url to your package manager in xcode
+```swift
+dependencies: [
+    .package(url: "https://github.com/indice-co/Indice.Swift.Networking", .upToNextMajor(from: "1.0.0"))
+]
+```
+Or you can clone the repo, and add it manually.
 
