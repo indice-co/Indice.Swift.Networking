@@ -36,6 +36,19 @@ public protocol NetworkLogger {
     func log(response : HTTPURLResponse, with: Data?)
 }
 
+public enum HeaderMasks {
+    case has(name: String)
+    case contains(name: String)
+    
+    static let authorization: HeaderMasks = .has(name: "Authorization")
+    
+    fileprivate func shouldMask(key: String) -> Bool {
+        switch self {
+        case .contains(let name): key.contains(name)
+        case .has     (let name): key == name
+        }
+    }
+}
 
 public class DefaultLogger: NetworkLogger {
     
@@ -46,13 +59,16 @@ public class DefaultLogger: NetworkLogger {
     public var responseLevel : NetworkLoggingLevel
     
     private var expectedType: String?
+    private var headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
+         headerMasks   : [HeaderMasks] = [],
          expectedType  : String? = "application/json") {
         self.tag = tag
         self.expectedType  = expectedType
+        self.headerMasks   = headerMasks
         self.requestLevel  = requestLevel
         self.responseLevel = responseLevel
     }
@@ -70,7 +86,7 @@ public class DefaultLogger: NetworkLogger {
         
         func defaultPrintBody() {
             if let bodyString = String(data: body, encoding: .utf8) {
-                messages.append("--- Body: Unhandled Content Type (\(String(describing: contentType))")
+                messages.append("--- Body: Unhandled Content Type (\(String(describing: contentType)))")
                 messages.append("--- Body: \(bodyString)")
             }
             return
@@ -80,7 +96,7 @@ public class DefaultLogger: NetworkLogger {
             defaultPrintBody()
             return
         }
-    
+        
         func isContentType(_ type: URLRequest.ContentType) -> Bool {
             if cType.contains(type.rawValue) {
                 messages.append("--- Body: Content-Type \(cType)")
@@ -124,9 +140,7 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if requestLevel.contains(.headers) {
-            request.allHTTPHeaderFields?.forEach {
-                messages.append("--- Header: \($0.key): \($0.value)")
-            }
+            appendMessagesFor(headers: request.allHTTPHeaderFields, to: &messages)
         }
         
         if requestLevel.contains(.body) {
@@ -153,9 +167,7 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if responseLevel.contains(.headers) {
-            response.allHeaderFields.forEach {
-                messages.append("--- Header: \($0.key): \($0.value)")
-            }
+            appendMessagesFor(headers: response.allHeaderFields, to: &messages)
         }
         
         if responseLevel.contains(.body) {
@@ -182,15 +194,42 @@ public class DefaultLogger: NetworkLogger {
 }
 
 
+// MARK: - Helpers
+
+private extension DefaultLogger {
+    
+    func transformed(value: String, forKey key: String) -> String {
+        if !headerMasks.allSatisfy({ $0.shouldMask(key: key) }) {
+            return value
+        }
+        
+        return String(repeating: "*", count: value.count)
+    }
+    
+    func appendMessagesFor(headers: [AnyHashable: Any]?, to messages: inout [String]) {
+        messages.append(contentsOf: (headers ?? [:]).map { key, value in
+            let keyString = "\(key)"
+            let valString = "\(value)"
+            let transform = transformed(value:  valString, forKey: keyString)
+            
+            return "--- Header: \(key): \(transform)"
+        })
+    }
+    
+}
+
+
 public extension NetworkLogger where Self == DefaultLogger {
     
     static func `default`(requestLevel: NetworkLoggingLevel  = .full,
-                          responseLevel: NetworkLoggingLevel = .full) -> NetworkLogger {
+                          responseLevel: NetworkLoggingLevel = .full,
+                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
         DefaultLogger(requestLevel: requestLevel, responseLevel: responseLevel)
     }
     
-    static func `default`(logLevel: NetworkLoggingLevel = .full) -> NetworkLogger {
-        `default`(requestLevel: logLevel, responseLevel: logLevel)
+    static func `default`(logLevel: NetworkLoggingLevel = .full,
+                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
+        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks)
     }
     
     static var `default`: NetworkLogger { `default`(logLevel: .full) }
