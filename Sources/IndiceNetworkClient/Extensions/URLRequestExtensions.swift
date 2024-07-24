@@ -19,10 +19,23 @@ extension URLRequest {
         case delete = "DELETE"
     }
     
-    public enum ContentType: String {
-        case json = "application/json"
-        case url  = "application/x-www-form-urlencoded"
-        case urlUtf8 = "application/x-www-form-urlencoded; charset=utf-8"
+    public enum ContentType {
+        case json
+        case url(useUTF8Charset: Bool = false)
+        case multipart(withBoundary: String)
+        
+        @available(*, deprecated, renamed: "url()", message: "Use the new url(useUTF8Charset:) to add the charset utf-8 or not")
+        public static let url: ContentType = url(useUTF8Charset: false)
+        
+        internal var value: String {
+            switch self {
+            case .json                    : "application/json"
+            case .multipart(let boundary) : "multipart/form-data; boundary=\(boundary)"
+            case .url(let useUTF8Charset) : useUTF8Charset
+                ? "application/x-www-form-urlencoded; charset=utf-8"
+                : "application/x-www-form-urlencoded"
+            }
+        }
     }
     
     public enum HeaderType {
@@ -45,8 +58,8 @@ extension URLRequest {
         public var value: String {
             switch self {
             case .authorisation(let token)    : return token
-            case .accept       (let type)     : return type.rawValue
-            case .content      (let type)     : return type.rawValue
+            case .accept       (let type)     : return type.value
+            case .content      (let type)     : return type.value
             case .language     (let value)    : return value
             case .custom       (_, let value) : return value
             }

@@ -23,10 +23,13 @@ public protocol URLRequestQueryBuilder: URLRequestResultBuilder {
 }
 
 public protocol URLRequestBodyBuilder {
+    typealias MultipartBuilder = URLRequestMultipartFormBuilder
+    
     func noBody()                      -> URLRequestQueryBuilder
     func bodyJson<T: Encodable>(of: T) -> URLRequestQueryBuilder
     func bodyForm     (params: Params) -> URLRequestQueryBuilder
     func bodyFormUtf8 (params: Params) -> URLRequestQueryBuilder
+    func bodyMultipart(_ builder: (MultipartBuilder) -> ()) -> URLRequestQueryBuilder
 }
 
 public protocol URLRequestMethodBuilder {
@@ -36,6 +39,51 @@ public protocol URLRequestMethodBuilder {
     func delete(path: String) -> URLRequestQueryBuilder
 }
 
+public protocol URLRequestMultipartFormBuilder {
+    typealias FilePart = MultipartFormFilePart
+    
+    func add(key: String, value: String)          -> URLRequestMultipartFormBuilder
+    func add(key: String, value: Data)            -> URLRequestMultipartFormBuilder
+    func add(key: String, file : FilePart) throws -> URLRequestMultipartFormBuilder
+}
+
+public struct MultipartFormFilePart {
+    let file: URL
+    let filename: String
+    let mimeType: MimeType
+    
+    public init(file: URL, filename: String, mimeType: MimeType) {
+        self.file = file
+        self.filename = filename
+        self.mimeType = mimeType
+    }
+    
+    var fileMimeType: String {
+        mimeType.value(forFile: file)
+    }
+    
+    var fileData: Data { get throws {
+        guard FileManager.default.fileExists(atPath: file.path) else {
+            throw errorOfType(.requestError(type: .invalidLocalFile(url: file)))
+        }
+        
+        return try Data(contentsOf: file)
+    } }
+    
+    public enum MimeType {
+        case type(mimeType: String)
+        case auto(withFallback: String = "application/octet-stream")
+        
+        fileprivate func value(forFile: URL) -> String {
+            switch self {
+            case .type(let mimeType): mimeType
+            case .auto(let fallback): fallback
+            }
+        }
+    }
+}
+
+
 extension URLRequest {
     public typealias Builder        = URLRequestMethodBuilder
     public typealias QueryBuilder   = URLRequestQueryBuilder
@@ -44,6 +92,66 @@ extension URLRequest {
     public typealias BodyBuilder    = URLRequestBodyBuilder
     
     public static func builder() -> Builder { URLRequestBuilder() }
+    
+    private class MultipartFormBuilder: BodyBuilder.MultipartBuilder {
+        private let boundary: String
+        private var data = Data()
+        private let separator: String = "\r\n"
+        
+        public var httpContentTypeHeadeValue: String {
+            "multipart/form-data; boundary=\(boundary)"
+        }
+        
+        private func appendBoundarySeparator() {
+            data.append("--\(boundary)\(separator)")
+        }
+        
+        private func appendSeparator() {
+            data.append(separator)
+        }
+
+        private func disposition(_ key: String) -> String {
+            "Content-Disposition: form-data; name=\"\(key)\""
+        }
+        
+        init(boundary: String = UUID().uuidString) {
+            self.boundary = boundary
+        }
+        
+        func add(key: String, value: String) -> BodyBuilder.MultipartBuilder {
+            appendBoundarySeparator()
+            data.append(disposition(key) + separator)
+            appendSeparator()
+            data.append(value + separator)
+            
+            return self as BodyBuilder.MultipartBuilder
+        }
+        
+        func add(key: String, value: Data) -> BodyBuilder.MultipartBuilder {
+            appendBoundarySeparator()
+            data.append(disposition(key) + separator)
+            appendSeparator()
+            data.append(value + separator.data(using: .utf8)!)
+            
+            return self as BodyBuilder.MultipartBuilder
+        }
+        
+        func add(key: String, file: FilePart) throws -> BodyBuilder.MultipartBuilder {
+            appendBoundarySeparator()
+            data.append(disposition(key) + "; filename=\"\(file.filename)\"" + separator)
+            data.append("Content-Type: \(file.fileMimeType)" + separator + separator)
+            data.append(try file.fileData)
+            appendSeparator()
+            
+            return self as BodyBuilder.MultipartBuilder
+        }
+        
+        func makeBody() -> (boundary: String, bodyData: Data) {
+            var bodyData = data
+            bodyData.append("--\(boundary)--")
+            return (boundary: boundary, bodyData: bodyData)
+        }
+    }
     
     private class URLRequestBuilder: Builder, BodyBuilder, QueryBuilder, HeaderBuilder {
         
@@ -89,25 +197,36 @@ extension URLRequest {
         
         func bodyJson<T>(of object: T) -> QueryBuilder where T : Encodable {
             request.httpBody = try? JSONEncoder().encode(object)
-            request.add(header: .content(type: .json))
+            request.set(header: .content(type: .json))
             
             return self as QueryBuilder
         }
         
         func bodyForm(params: Params) -> QueryBuilder {
             request.httpBody = percentEncodedString(params: params).data(using: .utf8)
-            request.add(header: .content(type: .url))
+            request.set(header: .content(type: .url(useUTF8Charset: false)))
             
             return self as QueryBuilder
         }
         
         func bodyFormUtf8(params: Params) -> QueryBuilder {
             request.httpBody = percentEncodedString(params: params).data(using: .utf8)
-            request.add(header: .content(type: .urlUtf8))
+            request.set(header: .content(type: .url(useUTF8Charset: true)))
             
             return self as QueryBuilder
         }
         
+        func bodyMultipart(_ builder: (any MultipartBuilder) -> ()) -> any URLRequestQueryBuilder {
+            let multipartBuilder = MultipartFormBuilder()
+            builder(multipartBuilder)
+            
+            let (boundary, data) = multipartBuilder.makeBody()
+            
+            request.httpBody = data
+            request.set(header: .content(type: .multipart(withBoundary: boundary)))
+            
+            return self as QueryBuilder
+        }
         
         // MARK: - HeaderBuilder
         
@@ -163,6 +282,19 @@ extension URLRequest {
 
     }
     
+}
+
+fileprivate extension Data {
+    
+    @discardableResult
+    mutating func append(_ string: String, encoding: String.Encoding = .utf8) -> Bool {
+        guard let data = string.data(using: encoding) else {
+            return false
+        }
+        
+        append(data)
+        return true
+    }
 }
 
 fileprivate func percentEncodedString(params: Params) -> String {

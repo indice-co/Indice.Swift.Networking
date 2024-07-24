@@ -82,7 +82,7 @@ public class DefaultLogger: NetworkLogger {
         }
     
         func isContentType(_ type: URLRequest.ContentType) -> Bool {
-            if cType.contains(type.rawValue) {
+            if cType.contains(type.value) {
                 messages.append("--- Body: Content-Type \(cType)")
                 return true
             }
@@ -99,7 +99,7 @@ public class DefaultLogger: NetworkLogger {
             return
         }
         
-        if isContentType(.url) {
+        if isContentType(.url()) {
             if let body = String(data: body, encoding: .utf8) {
                 body.components(separatedBy: "&").forEach {
                     messages.append("--- Body: \($0)")

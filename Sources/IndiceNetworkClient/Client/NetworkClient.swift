@@ -24,7 +24,7 @@ public final class NetworkClient {
     private var session: URLSession?
     
     private var commonHeaders: [String: String]
-    private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
+    private var requestTasks = SynchronizedDictionary<Int, Task<Data, Swift.Error>>()
     
     private lazy var urlSession: URLSession = {
         session ?? URLSession.shared
@@ -52,7 +52,7 @@ public final class NetworkClient {
     
     public func get<D: Decodable>(path: String) async throws -> D {
         guard let url = URL(string: path) else {
-            throw APIError(description: "Invalid URL: \(path)", code: nil)
+            throw errorOfType(.invalidUrl(originalUrl: path))
         }
         return try await fetch(request: URLRequest(url: url))
     }
@@ -66,14 +66,14 @@ public final class NetworkClient {
         
         do {
             return try decoder.decode(data: data)
-        } catch {
-            if let decodingError = error as? DecodingError {
+        } catch let err {
+            if let decodingError = err as? DecodingError {
                 logging.log(decodingError.description,  for: .response)
+                throw errorOfType(.decodingError(type: decodingError))
             } else {
-                logging.log(error.localizedDescription, for: .response)
+                logging.log(err.localizedDescription, for: .response)
+                throw err
             }
-            
-            throw error
         }
     }
 }
@@ -93,7 +93,7 @@ private extension NetworkClient {
         }()
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.InvalidResponse
+            throw errorOfType(.invalidResponse)
         }
         
         switch httpResponse.statusCode {
@@ -102,7 +102,7 @@ private extension NetworkClient {
             return data
         default:
             logging.log(response: httpResponse, with: nil)
-            throw APIError(response: httpResponse, data: data)
+            throw errorOfType(.apiError(response: httpResponse, data: data))
         }
     }
     
@@ -115,7 +115,7 @@ private extension NetworkClient {
         let current = interceptorList.removeFirst()
         
         return try await current.process(request) { [weak self] processedRequest in
-            guard let self = self else { throw APIError.Unknown }
+            guard let self = self else { throw errorOfType(.unknown) }
             return try await self.processRequest(processedRequest, withInterceptors: interceptorList)
         }
     }
@@ -151,4 +151,3 @@ private extension NetworkClient {
         return try await task.value
     }
 }
-
