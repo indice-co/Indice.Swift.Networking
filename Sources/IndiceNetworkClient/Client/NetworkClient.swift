@@ -18,6 +18,9 @@ public final class NetworkClient {
     public typealias Decoder = DecoderProtocol
     public typealias Logging = NetworkLogger
     
+    public typealias ErrorMapper = (HTTPURLResponse, Data) -> Swift.Error
+    
+    private let apiErrorMapper: (HTTPURLResponse, Data) -> Swift.Error
     private let interceptors : [Interceptor]
     private let decoder  : Decoder
     private let logging  : Logging
@@ -34,11 +37,13 @@ public final class NetworkClient {
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
+                apiErrorMapper: ErrorMapper? = nil,
                 commonHeaders: [String: String] = [:]) {
         self.interceptors = interceptors
         self.session = session
         self.decoder = decoder
         self.logging = logging
+        self.apiErrorMapper = apiErrorMapper ?? { errorOfType(.apiError(response: $0, data: $1)) }
         self.commonHeaders = commonHeaders
     }
     
@@ -54,6 +59,7 @@ public final class NetworkClient {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
         }
+        
         return try await fetch(request: URLRequest(url: url))
     }
     
@@ -102,7 +108,7 @@ private extension NetworkClient {
             return data
         default:
             logging.log(response: httpResponse, with: nil)
-            throw errorOfType(.apiError(response: httpResponse, data: data))
+            throw apiErrorMapper(httpResponse, data)
         }
     }
     
