@@ -1,6 +1,6 @@
 //
 //  URLRequestExtensions.swift
-//  EVPulse
+//  
 //
 //  Created by Nikolas Konstantakopoulos on 28/1/22.
 //

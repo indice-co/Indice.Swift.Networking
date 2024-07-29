@@ -1,6 +1,6 @@
 //
 //  LoggerProtocol.swift
-//  EVPulse
+//  
 //
 //  Created by Nikolas Konstantakopoulos on 14/2/22.
 //

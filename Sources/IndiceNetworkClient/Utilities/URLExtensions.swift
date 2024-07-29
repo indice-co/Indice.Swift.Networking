@@ -7,9 +7,8 @@
 
 import Foundation
 
-public extension URL {
-
-    var queryParameters: [String: String]? {
+extension URL {
+    public var queryParameters: [String: String]? {
         guard
             let components = URLComponents(url: self, resolvingAgainstBaseURL: false),
             let queryItems = components.queryItems
@@ -21,3 +20,19 @@ public extension URL {
     }
 
 }
+
+
+// https://stackoverflow.com/questions/26364914/http-request-in-swift-with-post-method
+extension CharacterSet {
+    public static let urlQueryValueAllowed: CharacterSet = {
+        let generalDelimitersToEncode = ":#[]@" // does not include "?" or "/" due to RFC 3986 - Section 3.4
+        let subDelimitersToEncode = "!$&'()*+,;="
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "\(generalDelimitersToEncode)\(subDelimitersToEncode)")
+        return allowed
+    }()
+}
+
+
+
+

@@ -1,6 +1,6 @@
 //
 //  URLRequestBuilder.swift
-//  EVPulse
+//
 //
 //  Created by Nikolas Konstantakopoulos on 4/2/22.
 //
@@ -74,10 +74,10 @@ public struct MultipartFormFilePart {
         case type(mimeType: String)
         case auto(withFallback: String = "application/octet-stream")
         
-        fileprivate func value(forFile: URL) -> String {
+        fileprivate func value(forFile url: URL) -> String {
             switch self {
             case .type(let mimeType): mimeType
-            case .auto(let fallback): fallback
+            case .auto(let fallback): url.mimeType ?? fallback
             }
         }
     }
@@ -98,18 +98,6 @@ extension URLRequest {
         private var data = Data()
         private let separator: String = "\r\n"
         
-        public var httpContentTypeHeadeValue: String {
-            "multipart/form-data; boundary=\(boundary)"
-        }
-        
-        private func appendBoundarySeparator() {
-            data.append("--\(boundary)\(separator)")
-        }
-        
-        private func appendSeparator() {
-            data.append(separator)
-        }
-
         private func disposition(_ key: String) -> String {
             "Content-Disposition: form-data; name=\"\(key)\""
         }
@@ -119,29 +107,29 @@ extension URLRequest {
         }
         
         func add(key: String, value: String) -> BodyBuilder.MultipartBuilder {
-            appendBoundarySeparator()
+            data.append("--\(boundary)\(separator)")
             data.append(disposition(key) + separator)
-            appendSeparator()
+            data.append(separator)
             data.append(value + separator)
             
             return self as BodyBuilder.MultipartBuilder
         }
         
         func add(key: String, value: Data) -> BodyBuilder.MultipartBuilder {
-            appendBoundarySeparator()
+            data.append("--\(boundary)\(separator)")
             data.append(disposition(key) + separator)
-            appendSeparator()
+            data.append(separator)
             data.append(value + separator.data(using: .utf8)!)
             
             return self as BodyBuilder.MultipartBuilder
         }
         
         func add(key: String, file: FilePart) throws -> BodyBuilder.MultipartBuilder {
-            appendBoundarySeparator()
+            data.append("--\(boundary)\(separator)")
             data.append(disposition(key) + "; filename=\"\(file.filename)\"" + separator)
             data.append("Content-Type: \(file.fileMimeType)" + separator + separator)
             data.append(try file.fileData)
-            appendSeparator()
+            data.append(separator)
             
             return self as BodyBuilder.MultipartBuilder
         }
@@ -279,10 +267,12 @@ extension URLRequest {
 
             return request
         }
-
     }
-    
 }
+
+
+
+// MARK: Helper extensions
 
 fileprivate extension Data {
     
@@ -299,28 +289,25 @@ fileprivate extension Data {
 
 fileprivate func percentEncodedString(params: Params) -> String {
     return params.map { key, value in
-        let escapedKey = "\(key)".addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
+        let escapedKey = "\(key)".urlEncodedOrEmpty
+        
         if let array = value as? [Any] {
             return array.map { entry in
-                let escapedValue = "\(entry)"
-                    .addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
-                return "\(key)[]=\(escapedValue)" }.joined(separator: "&"
-                )
+                let escapedValue = "\(entry)".urlEncodedOrEmpty
+                return "\(key)[]=\(escapedValue)"
+            }.joined(separator: "&")
         } else {
-            let escapedValue = "\(value)".addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
+            let escapedValue = "\(value)".urlEncodedOrEmpty
             return "\(escapedKey)=\(escapedValue)"
         }
     }
     .joined(separator: "&")
 }
 
-// Thansks to https://stackoverflow.com/questions/26364914/http-request-in-swift-with-post-method
-extension CharacterSet {
-    public static let urlQueryValueAllowed: CharacterSet = {
-        let generalDelimitersToEncode = ":#[]@" // does not include "?" or "/" due to RFC 3986 - Section 3.4
-        let subDelimitersToEncode = "!$&'()*+,;="
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "\(generalDelimitersToEncode)\(subDelimitersToEncode)")
-        return allowed
-    }()
+
+fileprivate extension String {
+    var urlEncodedOrEmpty: String {
+        addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
+    }
 }
+

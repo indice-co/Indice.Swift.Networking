@@ -1,6 +1,6 @@
 //
 //  Errors.swift
-//  EVPulse
+//  
 //
 //  Created by Nikolas Konstantakopoulos on 23/7/24.
 //

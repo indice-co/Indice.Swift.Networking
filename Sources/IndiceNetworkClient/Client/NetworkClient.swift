@@ -1,6 +1,6 @@
 //
 //  NetworkService.swift
-//  EVPulse
+//  
 //
 //  Created by Makis Stavropoulos on 4/1/22.
 //

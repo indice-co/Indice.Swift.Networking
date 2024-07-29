@@ -1,6 +1,6 @@
 //
 //  DecodingErrorExtensions.swift
-//  EVPulse
+//  
 //
 //  Created by Makis Stavropoulos on 27/9/21.
 //
