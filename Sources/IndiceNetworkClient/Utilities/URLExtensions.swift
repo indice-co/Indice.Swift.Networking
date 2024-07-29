@@ -32,7 +32,3 @@ extension CharacterSet {
         return allowed
     }()
 }
-
-
-
-

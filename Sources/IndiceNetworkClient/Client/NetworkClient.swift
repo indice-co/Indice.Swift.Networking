@@ -24,7 +24,6 @@ public final class NetworkClient {
     private let logging : Logging
     private var session : URLSession?
     
-    private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Swift.Error>>()
     
     private lazy var urlSession: URLSession = {
@@ -35,22 +34,12 @@ public final class NetworkClient {
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
-                apiErrorMapper: ResponseErrorMapper = .default,
-                commonHeaders: [String: String] = [:]) {
+                apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
         self.session = session
         self.decoder = decoder
         self.logging = logging
         self.apiErrorMapper = apiErrorMapper
-        self.commonHeaders = commonHeaders
-    }
-    
-    public func addCommonHeader(name: String, value: String) {
-        commonHeaders[name] = value
-    }
-    
-    public func removeCommonHeader(name: String) {
-        commonHeaders.removeValue(forKey: name)
     }
     
     public func get<D: Decodable>(path: String) async throws -> D {
@@ -124,8 +113,8 @@ private extension NetworkClient {
         }
     }
     
-    private func dataFetch(request initialRequest: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
-        let requestKey = customHash ?? initialRequest.hashValue
+    private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
+        let requestKey = customHash ?? request.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
         
         requestTasks.remove(keys: keys)
@@ -142,12 +131,7 @@ private extension NetworkClient {
                 logging.log("Request: Deleted Key: \(requestKey)", for: .request)
                 self.requestTasks.remove(key: requestKey)
             }
-            
-            var request = initialRequest
-            for (key, value) in commonHeaders {
-                request.setValue(value, forHTTPHeaderField: key)
-            }
-            
+                        
             return try await processRequest(request, withInterceptors: interceptors)
         }
         
