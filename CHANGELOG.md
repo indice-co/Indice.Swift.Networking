@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.X.X] - XXXX-XX-XX
+
+### Add
+- New `URLRequest.BodyBuilder` to create MultipartForm requests.
+- `ResponseErrorMapper`, can be injected to replace the default `NetworkClient.Error`, thrown from an "error" status code,  with a consumer generated one.
+
+
+### Breaking Changes
+- Removal of `APIError` definition. Replaced with `NetworkClient.Error`. <br>
+  To define a concrete Error type throw by your API, @see `ResponseErrorMapper`<br>
+- Removal of `NetworkClient`'s custom headers, as the functionality can be achieved by a `NetworkClient.Interceptor` 
+
+
 ## [1.3.0] - 2024-06-07
 
 ### Fixes
@@ -7,9 +20,8 @@
 
 
 ### Breaking Changes
-
 -  Removal of the `NetworkClient.Retrier` class, as the functionality can be achieved by a `NetworkClient.Interceptor`.
 
 
 ## [v < 1.3.0] - Well...
-Well, this is the changelog, so no info.
+We'll get to filling this space.
