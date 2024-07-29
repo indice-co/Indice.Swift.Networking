@@ -18,13 +18,11 @@ public final class NetworkClient {
     public typealias Decoder = DecoderProtocol
     public typealias Logging = NetworkLogger
     
-    public typealias ErrorMapper = (HTTPURLResponse, Data) -> Swift.Error
-    
-    private let apiErrorMapper: (HTTPURLResponse, Data) -> Swift.Error
-    private let interceptors : [Interceptor]
-    private let decoder  : Decoder
-    private let logging  : Logging
-    private var session: URLSession?
+    private let interceptors   : [Interceptor]
+    private let apiErrorMapper : ResponseErrorMapper
+    private let decoder : Decoder
+    private let logging : Logging
+    private var session : URLSession?
     
     private var commonHeaders: [String: String]
     private var requestTasks = SynchronizedDictionary<Int, Task<Data, Swift.Error>>()
@@ -37,13 +35,13 @@ public final class NetworkClient {
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
-                apiErrorMapper: ErrorMapper? = nil,
+                apiErrorMapper: ResponseErrorMapper = .default,
                 commonHeaders: [String: String] = [:]) {
         self.interceptors = interceptors
         self.session = session
         self.decoder = decoder
         self.logging = logging
-        self.apiErrorMapper = apiErrorMapper ?? { errorOfType(.apiError(response: $0, data: $1)) }
+        self.apiErrorMapper = apiErrorMapper
         self.commonHeaders = commonHeaders
     }
     
@@ -108,7 +106,7 @@ private extension NetworkClient {
             return data
         default:
             logging.log(response: httpResponse, with: nil)
-            throw apiErrorMapper(httpResponse, data)
+            throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
     
