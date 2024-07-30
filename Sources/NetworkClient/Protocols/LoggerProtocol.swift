@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NetworkUtilities
 
 public struct NetworkLoggingLevel: OptionSet {
     public let rawValue: Int

@@ -4,12 +4,16 @@
 
 ### Add
 - New `URLRequest.BodyBuilder` to create MultipartForm requests.
-- `ResponseErrorMapper`, can be injected to replace the default `NetworkClient.Error`, thrown from an "error" status code,  with a consumer generated one.
+- `ResponseErrorMapper`, can be injected to replace the default `NetworkClient.Error`, thrown from an faulty status code, with a consumer generated one.
 
 
 ### Breaking Changes
+- Rename to package to `NetworkClient`.<br>
+  Change your `import IndiceNetworkClient` to `import NetworkClient`.
+- Split into two targets `NetworkClient` and `NetworkUtilities`.<br>
+  The later contains any `URLRequest` and `URLRequest.Builder` related extension.
 - Removal of `APIError` definition. Replaced with `NetworkClient.Error`. <br>
-  To define a concrete Error type throw by your API, @see `ResponseErrorMapper`<br>
+  To define a concrete Error type throw by your API, @see `ResponseErrorMapper`.
 - Removal of `NetworkClient`'s custom headers, as the functionality can be achieved by a `NetworkClient.Interceptor` 
 
 

@@ -48,6 +48,11 @@ public protocol URLRequestMultipartFormBuilder {
 }
 
 public struct MultipartFormFilePart {
+    public enum Error: Swift.Error {
+        case invalidLocalFile(url: URL)
+    }
+    
+    
     let file: URL
     let filename: String
     let mimeType: MimeType
@@ -64,7 +69,7 @@ public struct MultipartFormFilePart {
     
     var fileData: Data { get throws {
         guard FileManager.default.fileExists(atPath: file.path) else {
-            throw errorOfType(.requestError(type: .invalidLocalFile(url: file)))
+            throw Error.invalidLocalFile(url: file)
         }
         
         return try Data(contentsOf: file)

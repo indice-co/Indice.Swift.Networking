@@ -1,22 +1,9 @@
 //
-//  Helpers.swift
+//  MimeType.swift
 //  
 //
-//  Created by Nikolas Konstantakopoulos on 25/1/23.
+//  Created by Nikolas Konstantakopoulos on 30/7/24.
 //
-
-import Foundation
-
-func printIfDebug(data: Data) {
-#if DEBUG
-    if let stringResponse: String = String(data: data, encoding: .utf8) {
-        print(stringResponse)
-    } else {
-        print("Cannot parse data response as String")
-    }
-#endif
-}
-
 
 
 import UniformTypeIdentifiers
@@ -28,7 +15,7 @@ internal extension URL {
             return nil
         }
         
-        if #available(iOS 14, *), 
+        if #available(iOS 14, *),
            let mime = UTType(filenameExtension: pathExtension)?.preferredMIMEType
         {
             return mime

@@ -27,7 +27,7 @@ extension URLRequest {
         @available(*, deprecated, renamed: "url()", message: "Use the new url(useUTF8Charset:) to add the charset utf-8 or not")
         public static let url: ContentType = url(useUTF8Charset: false)
         
-        internal var value: String {
+        public var value: String {
             switch self {
             case .json                    : "application/json"
             case .multipart(let boundary) : "multipart/form-data; boundary=\(boundary)"
