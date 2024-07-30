@@ -1,5 +1,5 @@
 import XCTest
-@testable import IndiceNetworkClient
+@testable import NetworkClient
 
 final class IndiceNetworkClientTests: XCTestCase {
     func testExample() throws {

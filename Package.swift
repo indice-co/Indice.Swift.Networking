@@ -24,6 +24,9 @@ let package = Package(
         ),
         .testTarget(
             name: "NetworkClientTests",
-            dependencies: ["NetworkClient"])
+            dependencies: ["NetworkClient"]),
+        .testTarget(
+            name: "NetworkUtilitiesTests",
+            dependencies: ["NetworkUtilities"])
     ]
 )

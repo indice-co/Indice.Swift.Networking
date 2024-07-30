@@ -13,10 +13,12 @@ public protocol URLRequestResultBuilder {
 
 public protocol URLRequestHeaderBuilder: URLRequestResultBuilder {
     func add(header: URLRequest.HeaderType) -> URLRequestHeaderBuilder
+    func add(headers: [URLRequest.HeaderType]) -> URLRequestHeaderBuilder
 }
 
 public protocol URLRequestQueryBuilder: URLRequestResultBuilder {
     func add(header: URLRequest.HeaderType) -> URLRequestHeaderBuilder
+    func add(headers: [URLRequest.HeaderType]) -> URLRequestHeaderBuilder
     func add(query: String, value: String?) -> URLRequestQueryBuilder
     func add(queryItems: [String: String])  -> URLRequestQueryBuilder
     func add(queryItems: [URLQueryItem])    -> URLRequestQueryBuilder
@@ -33,9 +35,21 @@ public protocol URLRequestBodyBuilder {
 }
 
 public protocol URLRequestMethodBuilder {
+    func get   (url: URL) -> URLRequestQueryBuilder
+    func put   (url: URL) -> URLRequestBodyBuilder
+    func post  (url: URL) -> URLRequestBodyBuilder
+    func patch (url: URL) -> URLRequestBodyBuilder
+    func delete(url: URL) -> URLRequestQueryBuilder
+    
+    @available(*, deprecated, renamed: "get(url:)", message: "Use the new non throwing replacement")
     func get   (path: String) -> URLRequestQueryBuilder
+    @available(*, deprecated, renamed: "put(url:)", message: "Use the new non throwing replacement")
     func put   (path: String) -> URLRequestBodyBuilder
+    @available(*, deprecated, renamed: "post(url:)", message: "Use the new non throwing replacement")
     func post  (path: String) -> URLRequestBodyBuilder
+    @available(*, deprecated, renamed: "patch(url:)", message: "Use the new non throwing replacement")
+    func patch (path: String) -> URLRequestBodyBuilder
+    @available(*, deprecated, renamed: "delete(url:)", message: "Use the new non throwing replacement")
     func delete(path: String) -> URLRequestQueryBuilder
 }
 
@@ -156,30 +170,42 @@ extension URLRequest {
         
         // MARK: - MethodBuilder
         
-        func get(path: String)  -> QueryBuilder {
-            request = URLRequest(url: URL(string: path)!)
+        func get   (path: String) -> QueryBuilder   { get   (url: URL(string: path)!) }
+        func put   (path: String) -> BodyBuilder    { put   (url: URL(string: path)!) }
+        func post  (path: String) -> BodyBuilder    { post  (url: URL(string: path)!) }
+        func patch (path: String) -> BodyBuilder    { patch (url: URL(string: path)!) }
+        func delete(path: String) -> QueryBuilder   { delete(url: URL(string: path)!) }
+        
+        func get(url: URL)  -> QueryBuilder {
+            request = URLRequest(url: url)
             request.method = .get
             
             return self as QueryBuilder
         }
         
-        func post(path: String) -> BodyBuilder {
-            request = URLRequest(url: URL(string: path)!)
+        func post(url: URL) -> BodyBuilder {
+            request = URLRequest(url: url)
             request.method = .post
             
             return self as BodyBuilder
         }
         
-        func put(path: String) -> BodyBuilder {
-            request = URLRequest(url: URL(string: path)!)
+        func put(url: URL) -> BodyBuilder {
+            request = URLRequest(url: url)
             request.method = .put
             
             return self as BodyBuilder
         }
         
+        func patch(url: URL) -> BodyBuilder {
+            request = URLRequest(url: url)
+            request.method = .patch
+            
+            return self as BodyBuilder
+        }
         
-        func delete(path: String) -> QueryBuilder {
-            request = URLRequest(url: URL(string: path)!)
+        func delete(url: URL) -> QueryBuilder {
+            request = URLRequest(url: url)
             request.method = .delete
             
             return self as QueryBuilder
@@ -225,6 +251,11 @@ extension URLRequest {
         
         func add(header: URLRequest.HeaderType) -> HeaderBuilder {
             request.add(header: header)
+            return self
+        }
+        
+        func add(headers: [URLRequest.HeaderType]) -> any URLRequestHeaderBuilder {
+            headers.forEach { request.add(header: $0) }
             return self
         }
         
