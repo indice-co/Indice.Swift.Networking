@@ -1,11 +1,13 @@
 # Changelog
 
-## [1.X.X] - XXXX-XX-XX
+## [X.X.X] - XXXX-XX-XX
 
-### Add
-- New `URLRequest.BodyBuilder` to create MultipartForm requests.
-- `ResponseErrorMapper`, can be injected to replace the default `NetworkClient.Error`, thrown from an faulty status code, with a consumer generated one.
+### Changees
+- Deprecate `URLRequest.MethodBuilder` *verb*(path:) methods. Use the relevant *verb*(url:). 
 
+### News
+- `URLRequest.BodyBuilder` to create MultipartForm requests.
+- `ResponseErrorMapper` can be injected to replace the default `NetworkClient.Error`, thrown from a faulty status code, with a consumer generated one.
 
 ### Breaking Changes
 - Rename to package to `NetworkClient`.<br>
@@ -14,7 +16,8 @@
   The later contains any `URLRequest` and `URLRequest.Builder` related extension.
 - Removal of `APIError` definition. Replaced with `NetworkClient.Error`. <br>
   To define a concrete Error type throw by your API, @see `ResponseErrorMapper`.
-- Removal of `NetworkClient`'s custom headers, as the functionality can be achieved by a `NetworkClient.Interceptor` 
+- Removal of `NetworkClient`'s custom headers, as the functionality can be achieved by a `NetworkClient.Interceptor`
+- Replace `URLRequest.ContentType.urlUtf8`, with `URLRequest.ContentType.url(useUTF8Charset:)`.  
 
 
 ## [1.3.0] - 2024-06-07
