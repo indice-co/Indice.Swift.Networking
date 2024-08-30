@@ -4,19 +4,29 @@
 import PackageDescription
 
 let package = Package(
-    name: "IndiceNetworkClient",
+    name: "NetworkClient",
     platforms: [.iOS(.v13), .macOS(.v10_15)],
     products: [
         .library(
-            name: "IndiceNetworkClient",
-            targets: ["IndiceNetworkClient"]),
+            name: "NetworkUtilities",
+            targets: ["NetworkUtilities"]),
+        .library(
+            name: "NetworkClient",
+            targets: ["NetworkClient"]),
     ],
     targets: [
         .target(
-            name: "IndiceNetworkClient",
-            dependencies: []),
+            name: "NetworkUtilities"
+        ),
+        .target(
+            name: "NetworkClient",
+            dependencies: ["NetworkUtilities"]
+        ),
         .testTarget(
-            name: "IndiceNetworkClientTests",
-            dependencies: ["IndiceNetworkClient"]),
+            name: "NetworkClientTests",
+            dependencies: ["NetworkClient"]),
+        .testTarget(
+            name: "NetworkUtilitiesTests",
+            dependencies: ["NetworkUtilities"])
     ]
 )

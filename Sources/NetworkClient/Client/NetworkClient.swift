@@ -1,6 +1,6 @@
 //
 //  NetworkService.swift
-//  EVPulse
+//  
 //
 //  Created by Makis Stavropoulos on 4/1/22.
 //
@@ -12,19 +12,43 @@ import Foundation
 
 public final class NetworkClient {
     
-    public typealias Result = (Data, URLResponse)
+    public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
+    
+    public struct Response<T> {
+        public let item: T
+        public let httpResponse: HTTPURLResponse
+        
+        init(_ item: T, httpResponse: HTTPURLResponse) {
+            self.item = item
+            self.httpResponse = httpResponse
+        }
+        
+        public var allHeaders: [AnyHashable: Any] {
+            httpResponse.allHeaderFields
+        }
+        
+        public func value(forHeaderKey key: String) -> String? {
+            httpResponse.value(forHTTPHeaderField: key)
+        }
+        
+        public subscript(headerKey: String) -> String? {
+            value(forHeaderKey: headerKey)
+        }
+    }
+    
+    private typealias ResultTask = Task<ChainResult, Swift.Error>
     
     public typealias Interceptor = InterceptorProtocol
     public typealias Decoder = DecoderProtocol
     public typealias Logging = NetworkLogger
     
-    private let interceptors : [Interceptor]
-    private let decoder  : Decoder
-    private let logging  : Logging
-    private var session: URLSession?
+    private let interceptors   : [Interceptor]
+    private let apiErrorMapper : ResponseErrorMapper
+    private let decoder : Decoder
+    private let logging : Logging
+    private var session : URLSession?
     
-    private var commonHeaders: [String: String]
-    private var requestTasks = SynchronizedDictionary<Int, Task<Data, Error>>()
+    private var requestTasks = SynchronizedDictionary<Int, ResultTask>()
     
     private lazy var urlSession: URLSession = {
         session ?? URLSession.shared
@@ -34,53 +58,47 @@ public final class NetworkClient {
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
-                commonHeaders: [String: String] = [:]) {
+                apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
         self.session = session
         self.decoder = decoder
         self.logging = logging
-        self.commonHeaders = commonHeaders
+        self.apiErrorMapper = apiErrorMapper
     }
     
-    public func addCommonHeader(name: String, value: String) {
-        commonHeaders[name] = value
-    }
-    
-    public func removeCommonHeader(name: String) {
-        commonHeaders.removeValue(forKey: name)
-    }
-    
-    public func get<D: Decodable>(path: String) async throws -> D {
+    public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
-            throw APIError(description: "Invalid URL: \(path)", code: nil)
+            throw errorOfType(.invalidUrl(originalUrl: path))
         }
+        
         return try await fetch(request: URLRequest(url: url))
     }
     
-    public func fetch(request: URLRequest) async throws {
-        _ = try await dataFetch(request: request, customHash: nil)
+    public func fetch(request: URLRequest) async throws -> Response<()> {
+        let result = try await dataFetch(request: request, customHash: nil)
+        return .init((), httpResponse: result.response)
     }
     
-    public func fetch<D: Decodable>(request: URLRequest) async throws -> D {
-        let data = try await dataFetch(request: request, customHash: nil)
+    public func fetch<D: Decodable>(request: URLRequest) async throws -> Response<D> {
+        let result = try await dataFetch(request: request, customHash: nil)
         
         do {
-            return try decoder.decode(data: data)
-        } catch {
-            if let decodingError = error as? DecodingError {
+            return .init(try decoder.decode(data: result.data), httpResponse: result.response)
+        } catch let err {
+            if let decodingError = err as? DecodingError {
                 logging.log(decodingError.description,  for: .response)
+                throw errorOfType(.decodingError(type: decodingError))
             } else {
-                logging.log(error.localizedDescription, for: .response)
+                logging.log(err.localizedDescription, for: .response)
+                throw err
             }
-            
-            throw error
         }
     }
 }
 
 private extension NetworkClient {
     
-    private func finalFetch(_ request: URLRequest) async throws -> Data {
+    private func finalFetch(_ request: URLRequest) async throws -> ChainResult {
         
         logging.log(request: request)
         
@@ -93,20 +111,20 @@ private extension NetworkClient {
         }()
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.InvalidResponse
+            throw errorOfType(.invalidResponse)
         }
         
         switch httpResponse.statusCode {
         case 200...299:
             logging.log(response: httpResponse, with: data)
-            return data
+            return (data, httpResponse)
         default:
             logging.log(response: httpResponse, with: nil)
-            throw APIError(response: httpResponse, data: data)
+            throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
     
-    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> Data {
+    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> ChainResult {
         guard !interceptors.isEmpty else {
             return try await finalFetch(request)
         }
@@ -115,13 +133,13 @@ private extension NetworkClient {
         let current = interceptorList.removeFirst()
         
         return try await current.process(request) { [weak self] processedRequest in
-            guard let self = self else { throw APIError.Unknown }
+            guard let self = self else { throw errorOfType(.unknown) }
             return try await self.processRequest(processedRequest, withInterceptors: interceptorList)
         }
     }
     
-    private func dataFetch(request initialRequest: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
-        let requestKey = customHash ?? initialRequest.hashValue
+    private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> ChainResult {
+        let requestKey = customHash ?? request.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
         
         requestTasks.remove(keys: keys)
@@ -132,18 +150,13 @@ private extension NetworkClient {
         
         logging.log("New Request: RequestKey: \(requestKey)", for: .request)
         
-        let task = Task { [unowned self] () throws -> Data in
+        let task = Task { [unowned self] () throws -> ChainResult in
             
             defer {
                 logging.log("Request: Deleted Key: \(requestKey)", for: .request)
                 self.requestTasks.remove(key: requestKey)
             }
-            
-            var request = initialRequest
-            for (key, value) in commonHeaders {
-                request.setValue(value, forHTTPHeaderField: key)
-            }
-            
+                        
             return try await processRequest(request, withInterceptors: interceptors)
         }
         
@@ -151,4 +164,3 @@ private extension NetworkClient {
         return try await task.value
     }
 }
-

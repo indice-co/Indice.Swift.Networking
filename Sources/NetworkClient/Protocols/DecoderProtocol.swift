@@ -11,7 +11,9 @@ public protocol DecoderProtocol {
     func decode<T: Decodable>(data: Data) throws -> T
 }
 
-
+/// The default JSONDecoder used from the `NetworkClient`
+///
+/// While a JSON response object is expected, having been around the block, this `Decoder` also checks for plain `Bool` and `String` response types.
 public class DefaultDecoder: DecoderProtocol {
     
     private let defaultJSONDecoder: JSONDecoder = {
