@@ -1,6 +1,6 @@
 # Changelog
 
-## [X.X.X] - XXXX-XX-XX
+## [1.4.0] - 2024-08-30
 
 ### Changees
 - Deprecate `URLRequest.MethodBuilder` *verb*(path:) methods. Use the relevant *verb*(url:).
