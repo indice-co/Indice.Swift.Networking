@@ -3,7 +3,7 @@
 ## [X.X.X] - XXXX-XX-XX
 
 ### Changees
-- Deprecate `URLRequest.MethodBuilder` *verb*(path:) methods. Use the relevant *verb*(url:). 
+- Deprecate `URLRequest.MethodBuilder` *verb*(path:) methods. Use the relevant *verb*(url:).
 
 ### News
 - `URLRequest.BodyBuilder` to create MultipartForm requests.

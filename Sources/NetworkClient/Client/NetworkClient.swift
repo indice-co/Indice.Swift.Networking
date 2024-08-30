@@ -12,7 +12,31 @@ import Foundation
 
 public final class NetworkClient {
     
-    public typealias Result = (Data, URLResponse)
+    public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
+    
+    public struct Response<T> {
+        public let item: T
+        public let httpResponse: HTTPURLResponse
+        
+        init(_ item: T, httpResponse: HTTPURLResponse) {
+            self.item = item
+            self.httpResponse = httpResponse
+        }
+        
+        public var allHeaders: [AnyHashable: Any] {
+            httpResponse.allHeaderFields
+        }
+        
+        public func value(forHeaderKey key: String) -> String? {
+            httpResponse.value(forHTTPHeaderField: key)
+        }
+        
+        public subscript(headerKey: String) -> String? {
+            value(forHeaderKey: headerKey)
+        }
+    }
+    
+    private typealias ResultTask = Task<ChainResult, Swift.Error>
     
     public typealias Interceptor = InterceptorProtocol
     public typealias Decoder = DecoderProtocol
@@ -24,7 +48,7 @@ public final class NetworkClient {
     private let logging : Logging
     private var session : URLSession?
     
-    private var requestTasks = SynchronizedDictionary<Int, Task<Data, Swift.Error>>()
+    private var requestTasks = SynchronizedDictionary<Int, ResultTask>()
     
     private lazy var urlSession: URLSession = {
         session ?? URLSession.shared
@@ -42,7 +66,7 @@ public final class NetworkClient {
         self.apiErrorMapper = apiErrorMapper
     }
     
-    public func get<D: Decodable>(path: String) async throws -> D {
+    public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
         }
@@ -50,15 +74,16 @@ public final class NetworkClient {
         return try await fetch(request: URLRequest(url: url))
     }
     
-    public func fetch(request: URLRequest) async throws {
-        _ = try await dataFetch(request: request, customHash: nil)
+    public func fetch(request: URLRequest) async throws -> Response<()> {
+        let result = try await dataFetch(request: request, customHash: nil)
+        return .init((), httpResponse: result.response)
     }
     
-    public func fetch<D: Decodable>(request: URLRequest) async throws -> D {
-        let data = try await dataFetch(request: request, customHash: nil)
+    public func fetch<D: Decodable>(request: URLRequest) async throws -> Response<D> {
+        let result = try await dataFetch(request: request, customHash: nil)
         
         do {
-            return try decoder.decode(data: data)
+            return .init(try decoder.decode(data: result.data), httpResponse: result.response)
         } catch let err {
             if let decodingError = err as? DecodingError {
                 logging.log(decodingError.description,  for: .response)
@@ -73,7 +98,7 @@ public final class NetworkClient {
 
 private extension NetworkClient {
     
-    private func finalFetch(_ request: URLRequest) async throws -> Data {
+    private func finalFetch(_ request: URLRequest) async throws -> ChainResult {
         
         logging.log(request: request)
         
@@ -92,14 +117,14 @@ private extension NetworkClient {
         switch httpResponse.statusCode {
         case 200...299:
             logging.log(response: httpResponse, with: data)
-            return data
+            return (data, httpResponse)
         default:
             logging.log(response: httpResponse, with: nil)
             throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
     
-    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> Data {
+    private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> ChainResult {
         guard !interceptors.isEmpty else {
             return try await finalFetch(request)
         }
@@ -113,7 +138,7 @@ private extension NetworkClient {
         }
     }
     
-    private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> Data {
+    private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> ChainResult {
         let requestKey = customHash ?? request.hashValue
         let keys = requestTasks.filter { $0.value.isCancelled }.keys
         
@@ -125,7 +150,7 @@ private extension NetworkClient {
         
         logging.log("New Request: RequestKey: \(requestKey)", for: .request)
         
-        let task = Task { [unowned self] () throws -> Data in
+        let task = Task { [unowned self] () throws -> ChainResult in
             
             defer {
                 logging.log("Request: Deleted Key: \(requestKey)", for: .request)

@@ -59,15 +59,18 @@ public class DefaultLogger: NetworkLogger {
     public var requestLevel  : NetworkLoggingLevel
     public var responseLevel : NetworkLoggingLevel
     
+    private var logStream: (String) -> ()
     private var expectedType: String?
     private var headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
+         logStream     : @escaping (String) -> () = { print($0) },
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
          headerMasks   : [HeaderMasks] = [],
          expectedType  : String? = "application/json") {
         self.tag = tag
+        self.logStream     = logStream
         self.expectedType  = expectedType
         self.headerMasks   = headerMasks
         self.requestLevel  = requestLevel
@@ -188,8 +191,10 @@ public class DefaultLogger: NetworkLogger {
     
     public func log(_ messages: [String], for type: NetworkLoggingType) {
         guard canPrint(for: type) else { return }
-        createMessage(from: messages).forEach { print($0) }
-        print()
+        createMessage(from: messages)
+            .forEach(logStream)
+        
+        logStream("\n")
     }
     
 }

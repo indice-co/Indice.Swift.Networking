@@ -9,16 +9,20 @@ import Foundation
 
 
 public protocol InterceptorProtocol: AnyObject {
-    func process(_ request: URLRequest, completion: (URLRequest) async throws -> Data) async throws -> Data
+    typealias Result = NetworkClient.ChainResult
+    
+    func process(
+        _ request: URLRequest,
+        completion: (URLRequest) async throws -> NetworkClient.ChainResult
+    ) async throws -> NetworkClient.ChainResult
 }
 
-
-public class PassthroughAdapter : InterceptorProtocol {
-    public func process(_ request: URLRequest, completion: (URLRequest) async throws -> Data) async throws -> Data {
+public class NoOpAdapter : InterceptorProtocol {
+    public func process(_ request: URLRequest, completion: (URLRequest) async throws -> NetworkClient.ChainResult) async throws -> NetworkClient.ChainResult {
         try await completion(request)
     }
 }
 
-public extension InterceptorProtocol where Self == PassthroughAdapter  {
-    static var `default`: InterceptorProtocol { PassthroughAdapter() }
+public extension InterceptorProtocol where Self == NoOpAdapter {
+    static var noOp: InterceptorProtocol { NoOpAdapter() }
 }
