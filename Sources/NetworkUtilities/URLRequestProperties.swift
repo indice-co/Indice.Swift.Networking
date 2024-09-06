@@ -113,8 +113,12 @@ extension URLRequest {
         set { httpMethod = newValue?.rawValue   }
     }
 
+    @available(*, deprecated, renamed: "get(url:)", message: "This method has a hidden throw possibility. User the non throwing one, handle your own URL creation!")
     public static func get(path: String) -> URLRequest {
         URLRequest(url: URL(string: path)!)
     }
     
+    public static func get(url: URL) -> URLRequest {
+        URLRequest(url: url)
+    }
 }
