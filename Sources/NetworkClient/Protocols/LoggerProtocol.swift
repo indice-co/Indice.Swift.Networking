@@ -54,6 +54,7 @@ public enum HeaderMasks {
 public class DefaultLogger: NetworkLogger {
     
     public static let defaultTag = "Network Logger"
+    public static let defaultStream = { (value: String) -> () in print(value) }
     
     public var tag: String
     public var requestLevel  : NetworkLoggingLevel
@@ -64,7 +65,7 @@ public class DefaultLogger: NetworkLogger {
     private var headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
-         logStream     : @escaping (String) -> () = { print($0) },
+         logStream     : @escaping (String) -> () = DefaultLogger.defaultStream,
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
          headerMasks   : [HeaderMasks] = [],
@@ -229,13 +230,18 @@ public extension NetworkLogger where Self == DefaultLogger {
     
     static func `default`(requestLevel: NetworkLoggingLevel  = .full,
                           responseLevel: NetworkLoggingLevel = .full,
-                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
-        DefaultLogger(requestLevel: requestLevel, responseLevel: responseLevel, headerMasks: headerMasks)
+                          headerMasks: [HeaderMasks] = [],
+                          logStream: @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
+        DefaultLogger(logStream: logStream,
+                      requestLevel: requestLevel,
+                      responseLevel: responseLevel,
+                      headerMasks: headerMasks)
     }
     
     static func `default`(logLevel: NetworkLoggingLevel = .full,
-                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
-        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks)
+                          headerMasks: [HeaderMasks] = [],
+                          logStream:  @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
+        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks, logStream: logStream)
     }
     
     static var `default`: NetworkLogger { `default`(logLevel: .full) }
