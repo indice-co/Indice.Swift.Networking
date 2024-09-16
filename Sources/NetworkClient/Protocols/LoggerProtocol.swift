@@ -26,15 +26,15 @@ public enum NetworkLoggingType {
     case request, response
 }
 
-public protocol NetworkLogger {
-    var tag   : String { get set }
+public protocol NetworkLogger: AnyObject {
+    var tag           : String { get set }
     var requestLevel  : NetworkLoggingLevel { get set }
     var responseLevel : NetworkLoggingLevel { get set }
     
     func log(_ message  :  String,  for: NetworkLoggingType)
     func log(_ messages : [String], for: NetworkLoggingType)
-    func log(request  : URLRequest)
-    func log(response : HTTPURLResponse, with: Data?)
+    func log(request    : URLRequest)
+    func log(response   : HTTPURLResponse, with: Data?)
 }
 
 public enum HeaderMasks {
@@ -54,6 +54,7 @@ public enum HeaderMasks {
 public class DefaultLogger: NetworkLogger {
     
     public static let defaultTag = "Network Logger"
+    public static let defaultStream = { (value: String) -> () in print(value) }
     
     public var tag: String
     public var requestLevel  : NetworkLoggingLevel
@@ -64,7 +65,7 @@ public class DefaultLogger: NetworkLogger {
     private var headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
-         logStream     : @escaping (String) -> () = { print($0) },
+         logStream     : @escaping (String) -> () = DefaultLogger.defaultStream,
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
          headerMasks   : [HeaderMasks] = [],
@@ -205,11 +206,11 @@ public class DefaultLogger: NetworkLogger {
 private extension DefaultLogger {
     
     func transformed(value: String, forKey key: String) -> String {
-        if !headerMasks.allSatisfy({ $0.shouldMask(key: key) }) {
-            return value
+        if headerMasks.contains(where: { $0.shouldMask(key: key) }) {
+            return String(repeating: "*", count: min(20, value.count))
         }
         
-        return String(repeating: "*", count: value.count)
+        return value
     }
     
     func appendMessagesFor(headers: [AnyHashable: Any]?, to messages: inout [String]) {
@@ -229,13 +230,18 @@ public extension NetworkLogger where Self == DefaultLogger {
     
     static func `default`(requestLevel: NetworkLoggingLevel  = .full,
                           responseLevel: NetworkLoggingLevel = .full,
-                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
-        DefaultLogger(requestLevel: requestLevel, responseLevel: responseLevel)
+                          headerMasks: [HeaderMasks] = [],
+                          logStream: @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
+        DefaultLogger(logStream: logStream,
+                      requestLevel: requestLevel,
+                      responseLevel: responseLevel,
+                      headerMasks: headerMasks)
     }
     
     static func `default`(logLevel: NetworkLoggingLevel = .full,
-                          headerMasks: [HeaderMasks] = []) -> NetworkLogger {
-        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks)
+                          headerMasks: [HeaderMasks] = [],
+                          logStream:  @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
+        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks, logStream: logStream)
     }
     
     static var `default`: NetworkLogger { `default`(logLevel: .full) }
