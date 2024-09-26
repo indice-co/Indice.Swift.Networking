@@ -119,7 +119,7 @@ private extension NetworkClient {
             logging.log(response: httpResponse, with: data)
             return (data, httpResponse)
         default:
-            logging.log(response: httpResponse, with: nil)
+            logging.log(response: httpResponse, with: data)
             throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
