@@ -26,7 +26,7 @@ final class URLRequestBodyTests: XCTestCase {
             .add(header: authHeader)
             .build()
         
-        let test = URLRequest(url: testURL).configure {
+        let test = URLRequest(url: testURL).configured {
             $0.addValue("some_jwt", forHTTPHeaderField: "Authorization")
         }
         
@@ -40,7 +40,7 @@ final class URLRequestBodyTests: XCTestCase {
             .add(header: .accept(type: .json))
             .build()
         
-        let test = URLRequest(url: testURL).configure {
+        let test = URLRequest(url: testURL).configured {
             $0.addValue("application/json", forHTTPHeaderField: "Content-Type")
             $0.addValue("application/json", forHTTPHeaderField: "Accept")
         }
@@ -54,7 +54,7 @@ final class URLRequestBodyTests: XCTestCase {
             .add(headers: uniqueHeaders.map { .custom(name: $0, value: $1) })
             .build()
         
-        let test = URLRequest(url: testURL).configure { request in
+        let test = URLRequest(url: testURL).configured { request in
             uniqueHeaders.forEach { key, value in
                 request.addValue(value, forHTTPHeaderField: key)
             }
@@ -77,7 +77,7 @@ final class URLRequestBodyTests: XCTestCase {
             .add(headers: sameHeaders)
             .build()
         
-        let test = URLRequest(url: testURL).configure { request in
+        let test = URLRequest(url: testURL).configured { request in
             sameHeaders.forEach {
                 request.addValue($0.value, forHTTPHeaderField: $0.name)
             }
