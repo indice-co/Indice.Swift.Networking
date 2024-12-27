@@ -1,5 +1,19 @@
 # Changelog
 
+
+## [1.4.2] - 2024 - 09 - 26
+
+### Changes
+- `NetworkClient` also logs any error data on a failed request.
+
+
+## [1.4.1] - 2024 - 09 - 16
+
+### Changes
+- Expose writing stream on `DefaultLogger`
+- `HeaderMask` check fix when logging 
+
+
 ## [1.4.0] - 2024-08-30
 
 ### Changees
