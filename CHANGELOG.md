@@ -1,13 +1,20 @@
 # Changelog
 
 
-## [1.4.2] - 2024 - 09 - 26
+## [1.4.X] - XXXX-XX-XX
+
+### News
+- Add `URLRequest.builder(options:)` to override the default encoders used to generate the `URLRequest.httpBody`.
+- Add `set(header:)` & `set(headers:)` on `URLRequest.HeaderBuilder`
+
+
+## [1.4.2] - 2024-09-26
 
 ### Changes
 - `NetworkClient` also logs any error data on a failed request.
 
 
-## [1.4.1] - 2024 - 09 - 16
+## [1.4.1] - 2024-09-16
 
 ### Changes
 - Expose writing stream on `DefaultLogger`

@@ -8,6 +8,10 @@
 
 import UniformTypeIdentifiers
 
+#if os(iOS)
+import MobileCoreServices
+#endif
+
 internal extension URL {
     var mimeType: String? {
         guard self.isFileURL else {

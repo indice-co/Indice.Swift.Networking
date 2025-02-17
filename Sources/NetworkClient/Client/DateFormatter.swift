@@ -8,7 +8,7 @@
 import Foundation
 
 // https://stackoverflow.com/a/50281094/976628
-public class TryDateFormatter: DateFormatter {
+public class TryDateFormatter: DateFormatter, @unchecked Sendable {
     static let alternate: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .iso8601)
