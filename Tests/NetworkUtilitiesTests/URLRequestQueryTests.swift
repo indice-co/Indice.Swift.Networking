@@ -29,7 +29,7 @@ final class URLRequestQueryTests {
         
         let test = URLRequest(url: testURLWithQueries)
         
-        #expect(test.url?.query() == built.url?.query())
+        #expect(test.url?.query == built.url?.query)
     }
     
     

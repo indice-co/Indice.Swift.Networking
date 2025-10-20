@@ -10,7 +10,7 @@ import Foundation
 
 // MARK: - Client Implementation
 
-public final class NetworkClient {
+public final actor NetworkClient {
     
     public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
     
@@ -48,7 +48,7 @@ public final class NetworkClient {
     private let logging : Logging
     private var session : URLSession?
     
-    private var requestTasks = SynchronizedDictionary<Int, ResultTask>()
+    private var requestTasks = AtomicStorage<Int, ResultTask>()
     
     private lazy var urlSession: URLSession = {
         session ?? URLSession.shared
@@ -131,36 +131,36 @@ private extension NetworkClient {
         
         var interceptorList = interceptors
         let current = interceptorList.removeFirst()
+        let leftOvers = interceptorList
         
         return try await current.process(request) { [weak self] processedRequest in
             guard let self = self else { throw errorOfType(.unknown) }
-            return try await self.processRequest(processedRequest, withInterceptors: interceptorList)
+            return try await self.processRequest(processedRequest, withInterceptors: leftOvers)
         }
     }
     
     private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> ChainResult {
         let requestKey = customHash ?? request.hashValue
-        let keys = requestTasks.filter { $0.value.isCancelled }.keys
+        let keys = await requestTasks.filter { $0.value.isCancelled }.keys
         
-        requestTasks.remove(keys: keys)
+        await requestTasks.remove(keys: keys)
         
-        if let requestTask = requestTasks[requestKey] {
+        if let requestTask = await requestTasks.get(requestKey) {
             return try await requestTask.value
         }
         
         logging.log("New Request: RequestKey: \(requestKey)", for: .request)
         
-        let task = Task { [unowned self] () throws -> ChainResult in
+        let task = Task { [unowned self, weak logging] () throws -> ChainResult in
+            let value = try await processRequest(request, withInterceptors: interceptors)
             
-            defer {
-                logging.log("Request: Deleted Key: \(requestKey)", for: .request)
-                self.requestTasks.remove(key: requestKey)
-            }
-                        
-            return try await processRequest(request, withInterceptors: interceptors)
+            logging?.log("Request: Deleted Key: \(requestKey)", for: .request)
+            await self.requestTasks.remove(key: requestKey)
+            
+            return value
         }
         
-        self.requestTasks[requestKey] = task
+        await self.requestTasks.set(requestKey, to: task)
         return try await task.value
     }
 }

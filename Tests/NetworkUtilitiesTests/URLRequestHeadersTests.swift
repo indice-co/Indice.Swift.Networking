@@ -39,6 +39,13 @@ final class URLRequestBodyTests: XCTestCase {
             .add(header: .content(type: .json))
             .add(header: .accept(type: .json))
             .build()
+
+        let built2 = try URLRequest.post(url: testURL)
+            .bodyMultipart({ _ in
+                throw NSError(domain: "", code: 0, userInfo: nil)
+            })
+            .build()
+
         
         let test = URLRequest(url: testURL).configured {
             $0.addValue("application/json", forHTTPHeaderField: "Content-Type")

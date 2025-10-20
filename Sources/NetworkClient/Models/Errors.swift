@@ -29,13 +29,13 @@ public extension NetworkClient {
         case requestError(type: RequestBuildingError)
         
         
-        public enum EncodingError {
+        public enum EncodingError: Sendable {
             case form
             case json
         }
         
         
-        public enum RequestBuildingError {
+        public enum RequestBuildingError: Sendable {
             case invalidLocalFile(url: URL)
         }
     }

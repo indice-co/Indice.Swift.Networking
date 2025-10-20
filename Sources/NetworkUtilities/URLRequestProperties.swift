@@ -11,7 +11,7 @@ import Foundation
 
 extension URLRequest {
     
-    public enum HTTPMethod: String {
+    public enum HTTPMethod: String, Sendable {
         case get    = "GET"
         case put    = "PUT"
         case patch  = "PATCH"
@@ -19,7 +19,7 @@ extension URLRequest {
         case delete = "DELETE"
     }
     
-    public enum ContentType {
+    public enum ContentType: Sendable {
         case json
         case url(useUTF8Charset: Bool = false)
         case multipart(withBoundary: String)
@@ -38,7 +38,7 @@ extension URLRequest {
         }
     }
     
-    public enum HeaderType {
+    public enum HeaderType: Sendable {
         case authorisation (auth: String)
         case accept        (type: ContentType)
         case content       (type: ContentType)

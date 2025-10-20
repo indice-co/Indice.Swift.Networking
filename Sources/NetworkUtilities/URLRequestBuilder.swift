@@ -41,7 +41,7 @@ public protocol URLRequestBodyBuilder {
     func bodyJson<T: Encodable>(of: T) throws -> URLRequestQueryBuilder
     func bodyForm     (params: Params) throws -> URLRequestQueryBuilder
     func bodyFormUtf8 (params: Params) throws -> URLRequestQueryBuilder
-    func bodyMultipart(_ builder: (MultipartBuilder) -> ()) -> URLRequestQueryBuilder
+    func bodyMultipart(_ builder: (MultipartBuilder) throws -> ()) rethrows -> URLRequestQueryBuilder
 }
 
 public protocol URLRequestMethodBuilder {
@@ -255,9 +255,9 @@ extension URLRequest {
             return self as QueryBuilder
         }
         
-        func bodyMultipart(_ builder: (any MultipartBuilder) -> ()) -> any URLRequestQueryBuilder {
+        func bodyMultipart(_ builder: (any MultipartBuilder) throws -> ()) rethrows -> any URLRequestQueryBuilder {
             let multipartBuilder = MultipartFormBuilder()
-            builder(multipartBuilder)
+            try builder(multipartBuilder)
             
             let (boundary, data) = multipartBuilder.makeBody()
             

@@ -8,7 +8,7 @@
 import Foundation
 import NetworkUtilities
 
-public struct NetworkLoggingLevel: OptionSet {
+public struct NetworkLoggingLevel: OptionSet, Sendable {
     public let rawValue: Int
     
     public init(rawValue: Int) {
@@ -26,10 +26,10 @@ public enum NetworkLoggingType {
     case request, response
 }
 
-public protocol NetworkLogger: AnyObject {
-    var tag           : String { get set }
-    var requestLevel  : NetworkLoggingLevel { get set }
-    var responseLevel : NetworkLoggingLevel { get set }
+public protocol NetworkLogger: AnyObject, Sendable {
+    var tag           : String { get }
+    var requestLevel  : NetworkLoggingLevel { get }
+    var responseLevel : NetworkLoggingLevel { get }
     
     func log(_ message  :  String,  for: NetworkLoggingType)
     func log(_ messages : [String], for: NetworkLoggingType)
@@ -37,7 +37,7 @@ public protocol NetworkLogger: AnyObject {
     func log(response   : HTTPURLResponse, with: Data?)
 }
 
-public enum HeaderMasks {
+public enum HeaderMasks: Sendable {
     case has(name: String)
     case contains(name: String)
     
@@ -51,18 +51,20 @@ public enum HeaderMasks {
     }
 }
 
-public class DefaultLogger: NetworkLogger {
+public class DefaultLogger: NetworkLogger, @unchecked Sendable {
     
     public static let defaultTag = "Network Logger"
+    
+    nonisolated(unsafe)
     public static let defaultStream = { (value: String) -> () in print(value) }
     
-    public var tag: String
-    public var requestLevel  : NetworkLoggingLevel
-    public var responseLevel : NetworkLoggingLevel
+    public let tag: String
+    public let requestLevel  : NetworkLoggingLevel
+    public let responseLevel : NetworkLoggingLevel
     
-    private var logStream: (String) -> ()
-    private var expectedType: String?
-    private var headerMasks: [HeaderMasks]
+    private let logStream: (String) -> ()
+    private let expectedType: String?
+    private let headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
          logStream     : @escaping (String) -> () = DefaultLogger.defaultStream,

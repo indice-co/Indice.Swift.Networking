@@ -8,17 +8,17 @@
 import Foundation
 
 
-public protocol InterceptorProtocol: AnyObject {
+public protocol InterceptorProtocol: AnyObject, Sendable {
     typealias Result = NetworkClient.ChainResult
     
     func process(
         _ request: URLRequest,
-        completion: (URLRequest) async throws -> NetworkClient.ChainResult
+        completion: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
     ) async throws -> NetworkClient.ChainResult
 }
 
-public class NoOpAdapter : InterceptorProtocol {
-    public func process(_ request: URLRequest, completion: (URLRequest) async throws -> NetworkClient.ChainResult) async throws -> NetworkClient.ChainResult {
+public class NoOpAdapter : InterceptorProtocol, @unchecked Sendable {
+    public func process(_ request: URLRequest, completion: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult) async throws -> NetworkClient.ChainResult {
         try await completion(request)
     }
 }
