@@ -23,7 +23,7 @@ public struct ResponseErrorMapper: Sendable {
         public let data: Data
         
         internal init(response: HTTPURLResponse, data: Data) {
-            self.error = errorOfType(.apiError(response: response, data: data))
+            self.error = .apiError(response: response, data: data)
             self.response = response
             self.data = data
         }

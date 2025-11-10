@@ -10,11 +10,11 @@ import Foundation
 
 // MARK: - Client Implementation
 
-public final actor NetworkClient {
+public final class NetworkClient: Sendable {
     
     public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
     
-    public struct Response<T> {
+    public struct Response<T>/*: Sendable where T: Sendable*/ {
         public let item: T
         public let httpResponse: HTTPURLResponse
         
@@ -36,31 +36,27 @@ public final actor NetworkClient {
         }
     }
     
-    private typealias ResultTask = Task<ChainResult, Swift.Error>
+    internal typealias ResultTask = Task<ChainResult, Swift.Error>
     
     public typealias Interceptor = InterceptorProtocol
-    public typealias Decoder = DecoderProtocol
-    public typealias Logging = NetworkLogger
+    public typealias Decoder = DecoderProtocol & Sendable
+    public typealias Logging = NetworkLogger   & Sendable
     
     private let interceptors   : [Interceptor]
     private let apiErrorMapper : ResponseErrorMapper
     private let decoder : Decoder
     private let logging : Logging
-    private var session : URLSession?
+    private let session : URLSession
     
-    private var requestTasks = AtomicStorage<Int, ResultTask>()
-    
-    private lazy var urlSession: URLSession = {
-        session ?? URLSession.shared
-    }()
-    
+    private let requestTasks = AtomicStorage<Int, ResultTask>()
+        
     public init(interceptors: [Interceptor] = [],
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
-        self.session = session
+        self.session = session ?? .shared
         self.decoder = decoder
         self.logging = logging
         self.apiErrorMapper = apiErrorMapper
@@ -86,10 +82,10 @@ public final actor NetworkClient {
             return .init(try decoder.decode(data: result.data), httpResponse: result.response)
         } catch let err {
             if let decodingError = err as? DecodingError {
-                logging.log(decodingError.description,  for: .response)
+                logging.log(decodingError.description,  for: .response, type: .critical)
                 throw errorOfType(.decodingError(type: decodingError))
             } else {
-                logging.log(err.localizedDescription, for: .response)
+                logging.log(err.localizedDescription, for: .response, type: .warning)
                 throw err
             }
         }
@@ -100,13 +96,13 @@ private extension NetworkClient {
     
     private func finalFetch(_ request: URLRequest) async throws -> ChainResult {
         
-        logging.log(request: request)
+        logging.log(request: request, type: .info)
         
         let (data, response) = try await {
             if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                return try await urlSession.data(for: request)
+                return try await session.data(for: request)
             } else {
-                return try await urlSession.asyncData(from: request)
+                return try await session.asyncData(from: request)
             }
         }()
         
@@ -116,10 +112,10 @@ private extension NetworkClient {
         
         switch httpResponse.statusCode {
         case 200...299:
-            logging.log(response: httpResponse, with: data)
+            logging.log(response: httpResponse, with: data, type: .info)
             return (data, httpResponse)
         default:
-            logging.log(response: httpResponse, with: data)
+            logging.log(response: httpResponse, with: data, type: .warning)
             throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
@@ -139,28 +135,32 @@ private extension NetworkClient {
         }
     }
     
+    private func stableKey(for request: URLRequest) -> Int {
+        var hasher = Hasher()
+        hasher.combine(request.url?.absoluteString ?? "")
+        hasher.combine(request.httpMethod ?? "GET")
+        hasher.combine(request.httpBody ?? .init())
+        return Int(hasher.finalize())
+    }
+    
     private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> ChainResult {
-        let requestKey = customHash ?? request.hashValue
-        let keys = await requestTasks.filter { $0.value.isCancelled }.keys
+        let requestKey = customHash ?? stableKey(for: request)
+        await requestTasks.removeCancelled()
         
-        await requestTasks.remove(keys: keys)
-        
-        if let requestTask = await requestTasks.get(requestKey) {
-            return try await requestTask.value
+        let task = await requestTasks.getOrInsert(requestKey) {
+            logging.log("New Request: RequestKey: \(requestKey)", for: .request, type: .info)
+            return Task { [weak self] () throws -> ChainResult in
+                guard let self else { throw errorOfType(.unknown) }
+                
+                let value = try await self.processRequest(request, withInterceptors: interceptors)
+                
+                logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
+                await self.requestTasks.remove(key: requestKey)
+                
+                return value
+            }
         }
         
-        logging.log("New Request: RequestKey: \(requestKey)", for: .request)
-        
-        let task = Task { [unowned self, weak logging] () throws -> ChainResult in
-            let value = try await processRequest(request, withInterceptors: interceptors)
-            
-            logging?.log("Request: Deleted Key: \(requestKey)", for: .request)
-            await self.requestTasks.remove(key: requestKey)
-            
-            return value
-        }
-        
-        await self.requestTasks.set(requestKey, to: task)
         return try await task.value
     }
 }

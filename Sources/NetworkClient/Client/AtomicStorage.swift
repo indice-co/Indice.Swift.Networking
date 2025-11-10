@@ -9,7 +9,7 @@ import Foundation
 
 
 
-internal actor AtomicStorage<K: Hashable, V> {
+internal actor AtomicStorage<K: Hashable & Sendable, V: Sendable> {
     private var dictionary = [K: V]()
     
     func get(_ key: K) -> V? {
@@ -21,11 +21,11 @@ internal actor AtomicStorage<K: Hashable, V> {
     }
     
     @discardableResult
-    func remove(key: [K: V].Key) -> V? {
+    func remove(key: K) -> V? {
         self.dictionary.removeValue(forKey: key)
     }
     
-    func remove(keys: [K: V].Keys) {
+    func remove<S: Sequence>(keys: S) where S.Element == K {
         keys.forEach { key in
             self
                 .dictionary
@@ -33,8 +33,25 @@ internal actor AtomicStorage<K: Hashable, V> {
         }
     }
     
-    func filter(predicate: ([K: V].Element) -> Bool) -> [K: V] {
+    func filter(predicate: @Sendable ([K: V].Element) -> Bool) -> [K: V] {
         dictionary.filter(predicate)
-    }
+    }    
 }
 
+
+extension AtomicStorage where V == NetworkClient.ResultTask {
+    func getOrInsert(_ key: K, create: @Sendable () -> V) -> V {
+        if let existing = dictionary[key] { return existing }
+        let new = create()
+        dictionary[key] = new
+        return new
+    }
+    
+    func removeCancelled() {
+        let cancelled = dictionary.compactMap {
+            $1.isCancelled ? $0 : nil
+        }
+        
+        remove(keys: cancelled)
+    }
+}

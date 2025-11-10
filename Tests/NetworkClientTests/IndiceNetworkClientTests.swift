@@ -1,13 +1,35 @@
-import XCTest
+import Testing
+import Foundation
+import OSLog
 @testable import NetworkClient
 
-final class IndiceNetworkClientTests: XCTestCase {
+
+
+@Suite("NetworkClient")
+final class IndiceNetworkClientTests {
         
-    func testExample() async throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        // XCTAssertEqual(IndiceNetworkClient().text, "Hello, World!")
+    
+    @Test
+    func osLoggerTest() async throws {
+        struct Body: Codable {
+            var valueString: String = "Hello World!"
+            var valueInt: Int = 42
+            var valueDouble: Double = 3.14159265358979323846
+            var valueBool: Bool = true
+            var valueDate: Date = Date()
+            var valueData: Data = "Swift is awesome!".data(using: .utf8)!
+        }
+        
+        
+        let logger = DefaultLogger.default
+        let request = try URLRequest.builder()
+            .get(url: URL(string: "https://example.com/")!)
+            // .bodyJson(of: Body())
+            .build()
+        
+        let client = NetworkClient()
+        
+        let body: Body = try await client.fetch(request: request).item
     }
 
 }

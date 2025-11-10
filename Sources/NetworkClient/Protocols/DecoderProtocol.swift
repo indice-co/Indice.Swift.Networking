@@ -14,9 +14,9 @@ public protocol DecoderProtocol {
 /// The default JSONDecoder used from the `NetworkClient`
 ///
 /// While a JSON response object is expected, having been around the block, this `Decoder` also checks for plain `Bool` and `String` response types.
-public class DefaultDecoder: DecoderProtocol {
+public struct DefaultDecoder: DecoderProtocol, Sendable {
     
-    private let defaultJSONDecoder: JSONDecoder = {
+    private static let defaultJSONDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .formatted(TryDateFormatter())
         return decoder
@@ -31,7 +31,7 @@ public class DefaultDecoder: DecoderProtocol {
         case is String.Type:
             return String(decoding: data, as: UTF8.self) as! T
         default:
-            return try defaultJSONDecoder.decode(T.self, from: data)
+            return try Self.defaultJSONDecoder.decode(T.self, from: data)
         }
     }
     
@@ -40,6 +40,6 @@ public class DefaultDecoder: DecoderProtocol {
 
 public extension DecoderProtocol where Self == DefaultDecoder {
     
-    static var `default`: some DecoderProtocol { DefaultDecoder() }
+    static var `default`: DefaultDecoder { DefaultDecoder() }
     
 }
