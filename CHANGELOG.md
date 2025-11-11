@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.4.3] - 2025-11-11
+
+### Changes
+- `NetworkClient` used to cache a task for a `URLRequest`, returning the same active task isntance's value for the same request.
+  This behavior now has to be opted-in, using the extension `URLRequest.withInstanceCaching()`.
+
+
+## [1.4.2] - 2024-09-26
+
+### Changes
+- NetworkLogger also log the response error body. 
+
+
+## [1.4.1] - 2024-09-16
+
+### Changes
+- Exposed an `outputStream` on `DefaultLogger` to override the default logging target.
+
+### Fixes
+- `HeaderMasks` work properly
+
+
 ## [1.4.0] - 2024-08-30
 
 ### Changees
