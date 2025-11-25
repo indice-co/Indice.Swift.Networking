@@ -9,8 +9,8 @@ import Foundation
 import NetworkUtilities
 
 
-extension URLRequest.Builder {
-    public static func build() -> URLRequest.Builder {
+public extension URLRequest.Builder {
+    static func build() -> URLRequest.Builder {
         URLRequest.builder(options: .init(
             encoder: DefaultJsonEncoder(),
             formEncoder: DefaultFormEncoder()))

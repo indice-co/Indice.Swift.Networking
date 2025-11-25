@@ -14,14 +14,14 @@ public protocol InterceptorProtocol: Sendable {
     func process(
         _ request: URLRequest,
         next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
-    ) async rethrows -> NetworkClient.ChainResult
+    ) async throws -> NetworkClient.ChainResult
 }
 
 public struct NoOpAdapter : InterceptorProtocol {
     public func process(
         _ request: URLRequest,
         next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
-    ) async rethrows -> NetworkClient.ChainResult {
+    ) async throws -> NetworkClient.ChainResult {
         
         try await next(request)
     }

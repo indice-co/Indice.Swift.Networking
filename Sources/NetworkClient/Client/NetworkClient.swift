@@ -48,7 +48,7 @@ public final class NetworkClient: Sendable {
     private let logging : Logging
     private let session : URLSession
     
-    private let requestTasks = AtomicStorage<Int, ResultTask>()
+    private let requestTasks = AtomicStorage<String, ResultTask>()
         
     public init(interceptors: [Interceptor] = [],
                 decoder: Decoder = .default,
@@ -135,15 +135,15 @@ private extension NetworkClient {
         }
     }
     
-    private func stableKey(for request: URLRequest) -> Int {
+    private func stableKey(for request: URLRequest) -> String {
         var hasher = Hasher()
         hasher.combine(request.url?.absoluteString ?? "")
         hasher.combine(request.httpMethod ?? "GET")
         hasher.combine(request.httpBody ?? .init())
-        return Int(hasher.finalize())
+        return String(hasher.finalize())
     }
     
-    private func dataFetch(request: URLRequest, customHash: Int?, canRetry: Bool = true) async throws -> ChainResult {
+    private func dataFetch(request: URLRequest, customHash: String?, canRetry: Bool = true) async throws -> ChainResult {
         let requestKey = customHash ?? stableKey(for: request)
         await requestTasks.removeCancelled()
         

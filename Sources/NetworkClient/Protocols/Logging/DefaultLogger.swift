@@ -174,12 +174,13 @@ private extension DefaultLogger {
     }
     
     func appendMessagesFor(headers: [AnyHashable: Any]?, to messages: inout [String]) {
+        messages.append(contentsOf: ["--- Headers: ---"])
         messages.append(contentsOf: (headers ?? [:]).map { key, value in
             let keyString = "\(key)"
             let valString = "\(value)"
             let transform = transformed(value:  valString, forKey: keyString)
             
-            return "--- Header: \(key): \(transform)"
+            return "\(key): \(transform)"
         })
     }
     
@@ -202,7 +203,11 @@ public extension NetworkLogger where Self == DefaultLogger<OSLogStream> {
     static func `default`(logLevel: NetworkLoggingLevel = .full,
                           headerMasks: [HeaderMasks] = [],
                           logStream: OSLogStream = .init()) -> NetworkLogger {
-        Self.default(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks, logStream: logStream)
+        Self.default(
+            requestLevel: logLevel,
+            responseLevel: logLevel,
+            headerMasks: headerMasks,
+            logStream: logStream)
     }
     
     static var `default`: NetworkLogger { Self.default(logLevel: .full) }
