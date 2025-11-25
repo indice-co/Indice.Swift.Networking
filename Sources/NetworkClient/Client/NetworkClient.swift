@@ -10,11 +10,11 @@ import Foundation
 
 // MARK: - Client Implementation
 
-public final class NetworkClient {
+public final class NetworkClient: Sendable {
     
     public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
     
-    public struct Response<T> {
+    public struct Response<T>/*: Sendable where T: Sendable*/ {
         public let item: T
         public let httpResponse: HTTPURLResponse
         
@@ -39,28 +39,24 @@ public final class NetworkClient {
     internal typealias ResultTask = Task<ChainResult, Swift.Error>
     
     public typealias Interceptor = InterceptorProtocol
-    public typealias Decoder = DecoderProtocol
-    public typealias Logging = NetworkLogger
+    public typealias Decoder = DecoderProtocol & Sendable
+    public typealias Logging = NetworkLogger   & Sendable
     
     private let interceptors   : [Interceptor]
     private let apiErrorMapper : ResponseErrorMapper
     private let decoder : Decoder
     private let logging : Logging
-    private var session : URLSession?
+    private let session : URLSession
     
-    private var requestTasks = SynchronizedDictionary<Int, ResultTask>()
-    
-    private lazy var urlSession: URLSession = {
-        session ?? URLSession.shared
-    }()
-    
+    private let requestTasks = AtomicStorage<String, ResultTask>()
+        
     public init(interceptors: [Interceptor] = [],
                 decoder: Decoder = .default,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
-        self.session = session
+        self.session = session ?? .shared
         self.decoder = decoder
         self.logging = logging
         self.apiErrorMapper = apiErrorMapper
@@ -86,10 +82,10 @@ public final class NetworkClient {
             return .init(try decoder.decode(data: result.data), httpResponse: result.response)
         } catch let err {
             if let decodingError = err as? DecodingError {
-                logging.log(decodingError.description,  for: .response)
+                logging.log(decodingError.description,  for: .response, type: .critical)
                 throw errorOfType(.decodingError(type: decodingError))
             } else {
-                logging.log(err.localizedDescription, for: .response)
+                logging.log(err.localizedDescription, for: .response, type: .warning)
                 throw err
             }
         }
@@ -100,13 +96,13 @@ private extension NetworkClient {
     
     private func finalFetch(_ request: URLRequest) async throws -> ChainResult {
         
-        logging.log(request: request)
+        logging.log(request: request, type: .info)
         
         let (data, response) = try await {
             if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                return try await urlSession.data(for: request)
+                return try await session.data(for: request)
             } else {
-                return try await urlSession.asyncData(from: request)
+                return try await session.asyncData(from: request)
             }
         }()
         
@@ -116,10 +112,10 @@ private extension NetworkClient {
         
         switch httpResponse.statusCode {
         case 200...299:
-            logging.log(response: httpResponse, with: data)
+            logging.log(response: httpResponse, with: data, type: .info)
             return (data, httpResponse)
         default:
-            logging.log(response: httpResponse, with: data)
+            logging.log(response: httpResponse, with: data, type: .warning)
             throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
         }
     }
@@ -131,45 +127,49 @@ private extension NetworkClient {
         
         var interceptorList = interceptors
         let current = interceptorList.removeFirst()
+        let leftOvers = interceptorList
         
         return try await current.process(request) { [weak self] processedRequest in
             guard let self = self else { throw errorOfType(.unknown) }
-            return try await self.processRequest(processedRequest, withInterceptors: interceptorList)
+            return try await self.processRequest(processedRequest, withInterceptors: leftOvers)
         }
     }
     
-    private func dataFetch(
-        request incoming: URLRequest,
-        canRetry: Bool = true
-    ) async throws -> ChainResult {
-        let keys = requestTasks.filter { $0.value.isCancelled }.keys
-        requestTasks.remove(keys: keys)
+    
+    private func stableKey(for request: URLRequest) -> String {
+        var hasher = Hasher()
+        hasher.combine(request.url?.absoluteString ?? "")
+        hasher.combine(request.httpMethod ?? "GET")
+        hasher.combine(request.httpBody ?? .init())
+        return String(hasher.finalize())
+    }
+    
+    private func dataFetch(request: URLRequest) async throws -> ChainResult {
+        await requestTasks.removeCancelled()
         
-        var requestKey = incoming.instanceHash
+        let requestKey = request.instanceHash ?? stableKey(for: request)
         
-        if incoming.shouldCacheInstance {
-            if let requestTask = requestTasks[requestKey] {
+        if request.shouldCacheInstance {
+            if let requestTask = await requestTasks.get(requestKey) {
                 return try await requestTask.value
             }
-        } else {
-            requestKey = Int.random(in: 0..<Int.max)
         }
         
-        logging.log("New Request: RequestKey: \(requestKey)", for: .request)
-        
-        let task = Task { [unowned self] () throws -> ChainResult in
-            
-            defer {
-                logging.log("Request: Deleted Key: \(requestKey)", for: .request)
-                self.requestTasks.remove(key: requestKey)
+        let task = await requestTasks.getOrInsert(requestKey) {
+            logging.log("New Request: RequestKey: \(requestKey)", for: .request, type: .info)
+            return Task { [weak self] () throws -> ChainResult in
+                guard let self else { throw errorOfType(.unknown) }
+                
+                let value = try await self.processRequest(
+                    request.clearingInstanceCaching(),
+                    withInterceptors: interceptors)
+                
+                logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
+                await self.requestTasks.remove(key: requestKey)
+                
+                return value
             }
-                        
-            return try await processRequest(
-                incoming.clearingInstanceCaching(),
-                withInterceptors: interceptors)
         }
-        
-        self.requestTasks[requestKey] = task
         return try await task.value
     }
 }
@@ -183,7 +183,7 @@ public extension URLRequest {
     let instanceHashingKey = UUID().uuidString
     
     func withInstanceCaching(
-        customHash: Int? = nil
+        customHash: String? = nil
     ) -> URLRequest {
         var m = self
         
@@ -194,7 +194,7 @@ public extension URLRequest {
         if let customHash {
             m.set(header: .custom(
                 name: Self.instanceHashingKey,
-                value: "\(customHash)"))
+                value: customHash))
         }
         
         return m
@@ -204,13 +204,8 @@ public extension URLRequest {
         self.allHTTPHeaderFields?[Self.instanceCachingKey] == "true"
     }
     
-    internal var instanceHash: Int {
-        guard
-            let valueString = self.allHTTPHeaderFields?[Self.instanceHashingKey],
-            let value = Int(valueString)
-        else { return self.hashValue }
-        
-        return value
+    internal var instanceHash: String? {
+        self.allHTTPHeaderFields?[Self.instanceHashingKey]
     }
     
     func clearingInstanceCaching() -> URLRequest {

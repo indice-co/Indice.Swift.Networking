@@ -7,6 +7,16 @@
 
 import Foundation
 
+public struct URLRequestBuilderOptions {
+    let encoder: JSONDataEncoder
+    let formEncoder: FormDataEncoder
+    
+    public init(encoder: JSONDataEncoder, formEncoder: FormDataEncoder) {
+        self.encoder = encoder
+        self.formEncoder = formEncoder
+    }
+}
+
 public protocol URLRequestResultBuilder {
     func build() -> URLRequest
 }
@@ -14,11 +24,11 @@ public protocol URLRequestResultBuilder {
 public protocol URLRequestHeaderBuilder: URLRequestResultBuilder {
     func add(header: URLRequest.HeaderType) -> URLRequestHeaderBuilder
     func add(headers: [URLRequest.HeaderType]) -> URLRequestHeaderBuilder
+    func set(header: URLRequest.HeaderType) -> URLRequestHeaderBuilder
+    func set(headers: [URLRequest.HeaderType]) -> URLRequestHeaderBuilder
 }
 
-public protocol URLRequestQueryBuilder: URLRequestResultBuilder {
-    func add(header: URLRequest.HeaderType) -> URLRequestHeaderBuilder
-    func add(headers: [URLRequest.HeaderType]) -> URLRequestHeaderBuilder
+public protocol URLRequestQueryBuilder: URLRequestHeaderBuilder {
     func add(query: String, value: String?) -> URLRequestQueryBuilder
     func add(queryItems: [String: String])  -> URLRequestQueryBuilder
     func add(queryItems: [URLQueryItem])    -> URLRequestQueryBuilder
@@ -28,13 +38,15 @@ public protocol URLRequestBodyBuilder {
     typealias MultipartBuilder = URLRequestMultipartFormBuilder
     
     func noBody()                      -> URLRequestQueryBuilder
-    func bodyJson<T: Encodable>(of: T) -> URLRequestQueryBuilder
-    func bodyForm     (params: Params) -> URLRequestQueryBuilder
-    func bodyFormUtf8 (params: Params) -> URLRequestQueryBuilder
-    func bodyMultipart(_ builder: (MultipartBuilder) -> ()) -> URLRequestQueryBuilder
+    func bodyJson<T: Encodable>(of: T) throws -> URLRequestQueryBuilder
+    func bodyForm     (params: Params) throws -> URLRequestQueryBuilder
+    func bodyFormUtf8 (params: Params) throws -> URLRequestQueryBuilder
+    func bodyMultipart(_ builder: (MultipartBuilder) throws -> ()) rethrows -> URLRequestQueryBuilder
 }
 
 public protocol URLRequestMethodBuilder {
+    typealias Options = URLRequestBuilderOptions
+    
     func get   (url: URL) -> URLRequestQueryBuilder
     func put   (url: URL) -> URLRequestBodyBuilder
     func post  (url: URL) -> URLRequestBodyBuilder
@@ -110,7 +122,11 @@ extension URLRequest {
     public typealias HeaderBuilder  = URLRequestHeaderBuilder
     public typealias BodyBuilder    = URLRequestBodyBuilder
     
-    public static func builder() -> Builder { URLRequestBuilder() }
+    public static func builder(options: Builder.Options? = nil) -> Builder {
+        URLRequestBuilder(options: options ?? .init(
+            encoder: DefaultJsonEncoder(),
+            formEncoder: DefaultFormEncoder()))
+    }
     
     private class MultipartFormBuilder: BodyBuilder.MultipartBuilder {
         private let boundary: String
@@ -163,9 +179,13 @@ extension URLRequest {
     private class URLRequestBuilder: Builder, BodyBuilder, QueryBuilder, HeaderBuilder {
         
         fileprivate var request: URLRequest!
-        fileprivate var queryItems = [String:String]()
+        fileprivate var queryItems = [URLQueryItem]()
         
-        fileprivate init() {}
+        fileprivate var options: Builder.Options
+        
+        fileprivate init(options: Builder.Options) {
+            self.options = options
+        }
         
         
         // MARK: - MethodBuilder
@@ -214,30 +234,30 @@ extension URLRequest {
         
         func noBody() -> QueryBuilder { self as QueryBuilder }
         
-        func bodyJson<T>(of object: T) -> QueryBuilder where T : Encodable {
-            request.httpBody = try? JSONEncoder().encode(object)
+        func bodyJson<T>(of object: T) throws -> QueryBuilder where T : Encodable {
+            request.httpBody = try options.encoder.encode(object)
             request.set(header: .content(type: .json))
             
             return self as QueryBuilder
         }
         
-        func bodyForm(params: Params) -> QueryBuilder {
-            request.httpBody = percentEncodedString(params: params).data(using: .utf8)
+        func bodyForm(params: Params) throws -> QueryBuilder {
+            request.httpBody = try options.formEncoder.encode(params)
             request.set(header: .content(type: .url(useUTF8Charset: false)))
             
             return self as QueryBuilder
         }
         
-        func bodyFormUtf8(params: Params) -> QueryBuilder {
-            request.httpBody = percentEncodedString(params: params).data(using: .utf8)
+        func bodyFormUtf8(params: Params) throws -> QueryBuilder {
+            request.httpBody = try options.formEncoder.encode(params)
             request.set(header: .content(type: .url(useUTF8Charset: true)))
             
             return self as QueryBuilder
         }
         
-        func bodyMultipart(_ builder: (any MultipartBuilder) -> ()) -> any URLRequestQueryBuilder {
+        func bodyMultipart(_ builder: (any MultipartBuilder) throws -> ()) rethrows -> any URLRequestQueryBuilder {
             let multipartBuilder = MultipartFormBuilder()
-            builder(multipartBuilder)
+            try builder(multipartBuilder)
             
             let (boundary, data) = multipartBuilder.makeBody()
             
@@ -258,25 +278,37 @@ extension URLRequest {
             headers.forEach { request.add(header: $0) }
             return self
         }
+
+        func set(header: URLRequest.HeaderType) -> HeaderBuilder {
+            request.set(header: header)
+            return self
+        }
         
+        func set(headers: [URLRequest.HeaderType]) -> any URLRequestHeaderBuilder {
+            headers.forEach { request.set(header: $0) }
+            return self
+        }
+
         
         // MARK: - QueryBuilder
         
         func add(query name: String, value: String?) -> QueryBuilder {
             if let value = value {
-                queryItems[name] = value
+                queryItems.append(.init(name: name, value: value))
             }
 
             return self as QueryBuilder
         }
         
         func add(queryItems items: [String: String])  -> QueryBuilder {
-            items.forEach { queryItems[$0.key] = $0.value }
+            queryItems.append(contentsOf: items.map {
+                .init(name: $0.key, value: $0.value)
+            })
             return self as QueryBuilder
         }
         
         func add(queryItems items: [URLQueryItem])    -> QueryBuilder {
-            items.forEach { queryItems[$0.name] = $0.value }
+            queryItems.append(contentsOf: items)
             return self as QueryBuilder
         }
         
@@ -288,13 +320,11 @@ extension URLRequest {
                 var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
                 let originalItems = components.queryItems ?? []
 
-                var finalItems = originalItems.filter {
-                    !queryItems.keys.contains($0.name)
+                var finalItems = originalItems.filter { ogItem in
+                    !queryItems.contains { $0.name == ogItem.name  }
                 }
                 
-                finalItems.append(contentsOf: queryItems.map {
-                    URLQueryItem(name: $0.key, value: $0.value)
-                })
+                finalItems.append(contentsOf: queryItems)
                 
                 components.queryItems = finalItems
                 
@@ -322,28 +352,3 @@ fileprivate extension Data {
         return true
     }
 }
-
-fileprivate func percentEncodedString(params: Params) -> String {
-    return params.map { key, value in
-        let escapedKey = "\(key)".urlEncodedOrEmpty
-        
-        if let array = value as? [Any] {
-            return array.map { entry in
-                let escapedValue = "\(entry)".urlEncodedOrEmpty
-                return "\(key)[]=\(escapedValue)"
-            }.joined(separator: "&")
-        } else {
-            let escapedValue = "\(value)".urlEncodedOrEmpty
-            return "\(escapedKey)=\(escapedValue)"
-        }
-    }
-    .joined(separator: "&")
-}
-
-
-fileprivate extension String {
-    var urlEncodedOrEmpty: String {
-        addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
-    }
-}
-

@@ -1,11 +1,11 @@
-// swift-tools-version:5.5
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "NetworkClient",
-    platforms: [.iOS(.v13), .macOS(.v10_15)],
+    platforms: [.iOS(.v14), .macOS(.v11)],
     products: [
         .library(
             name: "NetworkUtilities",
@@ -24,9 +24,12 @@ let package = Package(
         ),
         .testTarget(
             name: "NetworkClientTests",
-            dependencies: ["NetworkClient"]),
+            dependencies: ["NetworkClient"]
+        ),
         .testTarget(
             name: "NetworkUtilitiesTests",
-            dependencies: ["NetworkUtilities"])
-    ]
+            dependencies: ["NetworkUtilities"]
+        )
+    ],
+    swiftLanguageModes: [.v6],
 )

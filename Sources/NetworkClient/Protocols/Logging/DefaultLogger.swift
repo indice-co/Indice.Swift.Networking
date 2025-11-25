@@ -1,71 +1,26 @@
 //
-//  LoggerProtocol.swift
-//  
+//  DefaultLogger.swift
+//  NetworkClient
 //
-//  Created by Nikolas Konstantakopoulos on 14/2/22.
+//  Created by Nikolas Konstantakopoulos on 4/11/25.
 //
 
 import Foundation
-import NetworkUtilities
 
-public struct NetworkLoggingLevel: OptionSet {
-    public let rawValue: Int
+public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
     
-    public init(rawValue: Int) {
-        self.rawValue = rawValue
-    }
+    public static var defaultTag: String { "Network Logger" }
     
-    public static let off     = NetworkLoggingLevel([])
-    public static let status  = NetworkLoggingLevel(rawValue: 1 << 1)
-    public static let headers = NetworkLoggingLevel(rawValue: 1 << 2)
-    public static let body    = NetworkLoggingLevel(rawValue: 1 << 3)
-    public static let full    : NetworkLoggingLevel = [.status, .headers, .body]
-}
-
-public enum NetworkLoggingType {
-    case request, response
-}
-
-public protocol NetworkLogger: AnyObject {
-    var tag           : String { get set }
-    var requestLevel  : NetworkLoggingLevel { get set }
-    var responseLevel : NetworkLoggingLevel { get set }
+    public let tag: String
+    public let requestLevel  : NetworkLoggingLevel
+    public let responseLevel : NetworkLoggingLevel
     
-    func log(_ message  :  String,  for: NetworkLoggingType)
-    func log(_ messages : [String], for: NetworkLoggingType)
-    func log(request    : URLRequest)
-    func log(response   : HTTPURLResponse, with: Data?)
-}
-
-public enum HeaderMasks {
-    case has(name: String)
-    case contains(name: String)
-    
-    static let authorization: HeaderMasks = .has(name: "Authorization")
-    
-    fileprivate func shouldMask(key: String) -> Bool {
-        switch self {
-        case .contains(let name): key.contains(name)
-        case .has     (let name): key == name
-        }
-    }
-}
-
-public class DefaultLogger: NetworkLogger {
-    
-    public static let defaultTag = "Network Logger"
-    public static let defaultStream = { (value: String) -> () in print(value) }
-    
-    public var tag: String
-    public var requestLevel  : NetworkLoggingLevel
-    public var responseLevel : NetworkLoggingLevel
-    
-    private var logStream: (String) -> ()
-    private var expectedType: String?
-    private var headerMasks: [HeaderMasks]
+    private let logStream: LogStream
+    private let expectedType: String?
+    private let headerMasks: [HeaderMasks]
     
     init(tag: String   = defaultTag,
-         logStream     : @escaping (String) -> () = DefaultLogger.defaultStream,
+         logStream     : LogStream,
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
          headerMasks   : [HeaderMasks] = [],
@@ -82,11 +37,13 @@ public class DefaultLogger: NetworkLogger {
         (type == .request ? requestLevel : responseLevel) != .off
     }
     
-    private func createMessage(from messages: [String]) -> [String] {
-        messages.map { tag + ":: " + $0 }
+    private func createMessage(from messages: [String]) -> String {
+        messages
+            .map { tag + ":: " + $0 }
+            .joined(separator: "\n")
     }
     
-    private func log(body: Data?, ofType contentType: String?, on messages: inout [String]) {
+    private func write(body: Data?, ofType contentType: String?, on messages: inout [String]) {
         guard let body else { return }
         
         func defaultPrintBody() {
@@ -112,12 +69,15 @@ public class DefaultLogger: NetworkLogger {
         }
         
         if isContentType(.json) {
-            if let body = try? JSONSerialization.jsonObject(with: body, options: []) {
-                "\(body)".split(whereSeparator: \.isNewline).forEach {
+            if let json = try? JSONSerialization.jsonObject(with: body, options: []),
+               let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
+               let body = String(data: jsonData, encoding: .utf8) {
+                body.split(whereSeparator: \.isNewline).forEach {
                     messages.append("--- Body: \($0)")
                 }
+                
+                return
             }
-            return
         }
         
         if isContentType(.url()) {
@@ -132,7 +92,7 @@ public class DefaultLogger: NetworkLogger {
         defaultPrintBody()
     }
     
-    public func log(request: URLRequest) {
+    public func log(request: URLRequest, type: LogType) {
         guard canPrint(for: .request) else { return }
         var messages = ["START --->"]
         
@@ -150,15 +110,15 @@ public class DefaultLogger: NetworkLogger {
         
         if requestLevel.contains(.body) {
             let contentType = request.allHTTPHeaderFields?["Content-Type"] ?? expectedType
-            log(body: request.httpBody, ofType: contentType, on: &messages)
+            write(body: request.httpBody, ofType: contentType, on: &messages)
         }
         
         messages.append("END ----->")
         
-        log(messages, for: .request)
+        log(messages, for: .request, type: type)
     }
     
-    public func log(response: HTTPURLResponse, with data: Data?) {
+    public func log(response: HTTPURLResponse, with data: Data?, type: LogType) {
         guard canPrint(for: .response) else { return }
         
         var messages = ["START <---"]
@@ -177,25 +137,25 @@ public class DefaultLogger: NetworkLogger {
         
         if responseLevel.contains(.body) {
             let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? expectedType
-            log(body: data, ofType: contentType, on: &messages)
+            write(body: data, ofType: contentType, on: &messages)
         }
         
         messages.append("END <-----")
         
-        log(messages, for: .response)
+        log(messages, for: .response, type: type)
     }
     
-    public func log(_ message: String, for type: NetworkLoggingType) {
-        guard canPrint(for: type) else { return }
-        log([message], for: type)
+    public func log(_ message: String, for networkType: NetworkLoggingType, type: LogType) {
+        guard canPrint(for: networkType) else { return }
+        log([message], for: networkType, type: type)
     }
     
-    public func log(_ messages: [String], for type: NetworkLoggingType) {
-        guard canPrint(for: type) else { return }
-        createMessage(from: messages)
-            .forEach(logStream)
+    public func log(_ messages: [String], for networkType: NetworkLoggingType, type: LogType) {
+        guard canPrint(for: networkType) else { return }
+        let message = createMessage(from: messages)
+        logStream.log(message, for: type.osLogType)
         
-        logStream("\n")
+        logStream.log("\n")
     }
     
 }
@@ -214,38 +174,64 @@ private extension DefaultLogger {
     }
     
     func appendMessagesFor(headers: [AnyHashable: Any]?, to messages: inout [String]) {
+        messages.append(contentsOf: ["--- Headers: ---"])
         messages.append(contentsOf: (headers ?? [:]).map { key, value in
             let keyString = "\(key)"
             let valString = "\(value)"
             let transform = transformed(value:  valString, forKey: keyString)
             
-            return "--- Header: \(key): \(transform)"
+            return "\(key): \(transform)"
         })
     }
     
 }
 
 
-public extension NetworkLogger where Self == DefaultLogger {
+public extension NetworkLogger where Self == DefaultLogger<OSLogStream> {
     
     static func `default`(requestLevel: NetworkLoggingLevel  = .full,
                           responseLevel: NetworkLoggingLevel = .full,
                           headerMasks: [HeaderMasks] = [],
-                          logStream: @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
-        DefaultLogger(logStream: logStream,
-                      requestLevel: requestLevel,
-                      responseLevel: responseLevel,
-                      headerMasks: headerMasks)
+                          logStream: OSLogStream = .init()) -> NetworkLogger {
+        DefaultLogger<OSLogStream>(
+            logStream: logStream,
+            requestLevel: requestLevel,
+            responseLevel: responseLevel,
+            headerMasks: headerMasks)
     }
     
     static func `default`(logLevel: NetworkLoggingLevel = .full,
                           headerMasks: [HeaderMasks] = [],
-                          logStream:  @escaping (String) -> () = DefaultLogger.defaultStream) -> NetworkLogger {
-        `default`(requestLevel: logLevel, responseLevel: logLevel, headerMasks: headerMasks, logStream: logStream)
+                          logStream: OSLogStream = .init()) -> NetworkLogger {
+        Self.default(
+            requestLevel: logLevel,
+            responseLevel: logLevel,
+            headerMasks: headerMasks,
+            logStream: logStream)
     }
     
-    static var `default`: NetworkLogger { `default`(logLevel: .full) }
+    static var `default`: NetworkLogger { Self.default(logLevel: .full) }
     
 }
 
 
+
+
+import OSLog
+
+public struct OSLogStream: LogStream {
+    
+    private let logger: Logger
+    
+    public init(subsystem: String = Bundle.main.bundleIdentifier ?? "indice.network.client") {
+        self.logger = Logger(subsystem: subsystem, category: "NetworkClient")
+    }
+
+    public func log(_ message: String) {
+        log(message, for: .info)
+    }
+    public func log(_ message: String, for type: OSLogType) {
+        logger.log(level: type, "\(message)")
+    }
+    
+}

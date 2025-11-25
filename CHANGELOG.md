@@ -1,16 +1,31 @@
 # Changelog
 
-## [1.4.3] - 2025-11-11
+## [1.5.0] - XXXX-XX-XX
+
+### News
+- Update swift-tools to 6.2
 
 ### Changes
+- Add `URLRequest.builder(options:)` to override the default encoders used to generate the `URLRequest.httpBody`.
+- Add `set(header:)` & `set(headers:)` on `URLRequest.HeaderBuilder` 
+- `LogStream` is now a protocol.
+- `DefaultLogger` uses a `LogStream` to insert log messages
+- `DefaultLogger` minor changes to its messages representation.
+
+
+### Breaking Changes
 - `NetworkClient` used to cache a task for a `URLRequest`, returning the same active task isntance's value for the same request.
   This behavior now has to be opted-in, using the extension `URLRequest.withInstanceCaching()`.
+- Minumum OSs bumped to iOS 14, macOS 11.
+- Conformance to Swift6 strict concurrency cause changes to various signatures and definitions. 
+- `NetworClient.Interceptor` renamed `process(_:completion:)` to `process(_:next:)` to better imply the chain process. 
+
 
 
 ## [1.4.2] - 2024-09-26
 
 ### Changes
-- NetworkLogger also log the response error body. 
+- `NetworkClient` also logs any error data on a failed request.
 
 
 ## [1.4.1] - 2024-09-16

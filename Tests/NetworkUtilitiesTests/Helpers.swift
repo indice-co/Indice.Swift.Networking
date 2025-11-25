@@ -9,7 +9,7 @@ import Foundation
 
 extension URLRequest {
     
-    func configure(_ configuration: (inout URLRequest) -> ()) -> URLRequest {
+    func configured(_ configuration: (inout URLRequest) -> ()) -> URLRequest {
         var request = self
         configuration(&request)
         

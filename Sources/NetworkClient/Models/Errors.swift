@@ -21,13 +21,21 @@ public extension NetworkClient {
         case invalidResponse
         /// Decoding the server's response failed. Maybe check your return types?
         case decodingError(type: DecodingError)
+        /// Encoding error
+        case encodingError(type: EncodingError)
         
         /// Issues regarding the request building process.
         /// Currently, creating a MultipartForm Part from a url may throw.
         case requestError(type: RequestBuildingError)
         
         
-        public enum RequestBuildingError {
+        public enum EncodingError: Sendable {
+            case form
+            case json
+        }
+        
+        
+        public enum RequestBuildingError: Sendable {
             case invalidLocalFile(url: URL)
         }
     }
