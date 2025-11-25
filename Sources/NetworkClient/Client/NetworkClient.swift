@@ -71,12 +71,12 @@ public final class NetworkClient: Sendable {
     }
     
     public func fetch(request: URLRequest) async throws -> Response<()> {
-        let result = try await dataFetch(request: request, customHash: nil)
+        let result = try await dataFetch(request: request)
         return .init((), httpResponse: result.response)
     }
     
     public func fetch<D: Decodable>(request: URLRequest) async throws -> Response<D> {
-        let result = try await dataFetch(request: request, customHash: nil)
+        let result = try await dataFetch(request: request)
         
         do {
             return .init(try decoder.decode(data: result.data), httpResponse: result.response)
@@ -135,6 +135,7 @@ private extension NetworkClient {
         }
     }
     
+    
     private func stableKey(for request: URLRequest) -> String {
         var hasher = Hasher()
         hasher.combine(request.url?.absoluteString ?? "")
@@ -143,16 +144,25 @@ private extension NetworkClient {
         return String(hasher.finalize())
     }
     
-    private func dataFetch(request: URLRequest, customHash: String?, canRetry: Bool = true) async throws -> ChainResult {
-        let requestKey = customHash ?? stableKey(for: request)
+    private func dataFetch(request: URLRequest) async throws -> ChainResult {
         await requestTasks.removeCancelled()
+        
+        let requestKey = request.instanceHash ?? stableKey(for: request)
+        
+        if request.shouldCacheInstance {
+            if let requestTask = await requestTasks.get(requestKey) {
+                return try await requestTask.value
+            }
+        }
         
         let task = await requestTasks.getOrInsert(requestKey) {
             logging.log("New Request: RequestKey: \(requestKey)", for: .request, type: .info)
             return Task { [weak self] () throws -> ChainResult in
                 guard let self else { throw errorOfType(.unknown) }
                 
-                let value = try await self.processRequest(request, withInterceptors: interceptors)
+                let value = try await self.processRequest(
+                    request.clearingInstanceCaching(),
+                    withInterceptors: interceptors)
                 
                 logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
                 await self.requestTasks.remove(key: requestKey)
@@ -160,7 +170,50 @@ private extension NetworkClient {
                 return value
             }
         }
-        
         return try await task.value
+    }
+}
+
+public extension URLRequest {
+
+    internal static
+    let instanceCachingKey = UUID().uuidString
+    
+    internal static
+    let instanceHashingKey = UUID().uuidString
+    
+    func withInstanceCaching(
+        customHash: String? = nil
+    ) -> URLRequest {
+        var m = self
+        
+        m.set(header: .custom(
+            name: Self.instanceCachingKey,
+            value: "true"))
+        
+        if let customHash {
+            m.set(header: .custom(
+                name: Self.instanceHashingKey,
+                value: customHash))
+        }
+        
+        return m
+    }
+    
+    internal var shouldCacheInstance: Bool {
+        self.allHTTPHeaderFields?[Self.instanceCachingKey] == "true"
+    }
+    
+    internal var instanceHash: String? {
+        self.allHTTPHeaderFields?[Self.instanceHashingKey]
+    }
+    
+    func clearingInstanceCaching() -> URLRequest {
+        var m = self
+        
+        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceCachingKey)
+        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceHashingKey)
+        
+        return m
     }
 }

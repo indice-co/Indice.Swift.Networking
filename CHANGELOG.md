@@ -1,11 +1,18 @@
 # Changelog
 
-
 ## [1.4.X] - XXXX-XX-XX
 
 ### News
 - Add `URLRequest.builder(options:)` to override the default encoders used to generate the `URLRequest.httpBody`.
 - Add `set(header:)` & `set(headers:)` on `URLRequest.HeaderBuilder`
+
+
+## [1.4.3] - 2025-11-11
+
+### Changes
+- `NetworkClient` used to cache a task for a `URLRequest`, returning the same active task isntance's value for the same request.
+  This behavior now has to be opted-in, using the extension `URLRequest.withInstanceCaching()`.
+
 
 
 ## [1.4.2] - 2024-09-26
@@ -17,8 +24,10 @@
 ## [1.4.1] - 2024-09-16
 
 ### Changes
-- Expose writing stream on `DefaultLogger`
-- `HeaderMask` check fix when logging 
+- Exposed an `outputStream` on `DefaultLogger` to override the default logging target.
+
+### Fixes
+- `HeaderMasks` work properly
 
 
 ## [1.4.0] - 2024-08-30
