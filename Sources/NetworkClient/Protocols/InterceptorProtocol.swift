@@ -22,7 +22,6 @@ public struct NoOpAdapter : InterceptorProtocol {
         _ request: URLRequest,
         next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
     ) async throws -> NetworkClient.ChainResult {
-        
         try await next(request)
     }
 }

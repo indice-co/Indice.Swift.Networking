@@ -9,7 +9,7 @@ Swift Library containing http related stuff as well as rest helpers and encoding
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/indice-co/Indice.Swift.Networking", .upToNextMajor(from: "1.0.0"))
+    .package(url: "https://github.com/indice-co/Indice.Swift.Networking", .upToNextMajor(from: "1.5.0"))
 ]
 ```
 Or you can clone the repo, and add it manually.
