@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5.0] - XXXX-XX-XX
+## [1.5.0] - 2025-12-04
 
 ### News
 - Update swift-tools to 6.2
