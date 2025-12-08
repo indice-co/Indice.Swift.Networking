@@ -147,10 +147,12 @@ private extension NetworkClient {
     private func dataFetch(request: URLRequest) async throws -> ChainResult {
         await requestTasks.removeCancelled()
         
-        let requestKey = request.instanceHash ?? stableKey(for: request)
+        let incomingKey = request.instanceHash ?? stableKey(for: request)
+        let requestKey = request.shouldCacheInstance ? incomingKey : incomingKey + "_" + UUID().uuidString
         
         if request.shouldCacheInstance {
-            if let requestTask = await requestTasks.get(requestKey) {
+            if let requestTask = await requestTasks.get(incomingKey) {
+                logging.log("Cached Request: RequestKey: \(incomingKey)", for: .request, type: .info)
                 return try await requestTask.value
             }
         }
@@ -159,17 +161,26 @@ private extension NetworkClient {
             logging.log("New Request: RequestKey: \(requestKey)", for: .request, type: .info)
             return Task { [weak self] () throws -> ChainResult in
                 guard let self else { throw errorOfType(.unknown) }
-                
-                let value = try await self.processRequest(
-                    request.clearingInstanceCaching(),
-                    withInterceptors: interceptors)
-                
-                logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
-                await self.requestTasks.remove(key: requestKey)
-                
-                return value
+                                
+                do {
+                    let value = try await self.processRequest(
+                        request.clearingInstanceCaching(),
+                        withInterceptors: interceptors)
+                    
+                    await self.requestTasks.remove(key: requestKey)
+                    logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
+                    
+                    return value
+                } catch {
+                    
+                    await self.requestTasks.remove(key: requestKey)
+                    logging.log("Request: Deleted Key: \(requestKey)", for: .request, type: .info)
+                    
+                    throw error
+                }
             }
         }
+        
         return try await task.value
     }
 }
