@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.1] - 2025-12-08
+
+### Fixes
+- Fix problem where failed requests remained cached 
+
+
 ## [1.5.0] - 2025-12-04
 
 ### News
