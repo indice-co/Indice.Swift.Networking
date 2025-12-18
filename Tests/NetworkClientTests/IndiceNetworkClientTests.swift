@@ -20,16 +20,14 @@ final class IndiceNetworkClientTests {
             var valueData: Data = "Swift is awesome!".data(using: .utf8)!
         }
         
-        
-        let logger = DefaultLogger.default
-        let request = try URLRequest.builder()
+        let logger = DefaultLogger.default()
+        let request = URLRequest.builder()
             .get(url: URL(string: "https://example.com/")!)
             // .bodyJson(of: Body())
             .build()
         
-        let client = NetworkClient()
+        let client = NetworkClient(logging: logger)
         
-        let body: Body = try await client.fetch(request: request).item
+        try await client.fetch(request: request).item
     }
-
 }

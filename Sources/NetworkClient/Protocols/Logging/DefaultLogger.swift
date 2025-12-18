@@ -7,7 +7,7 @@
 
 import Foundation
 
-public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
+public final class DefaultLogger: NetworkLogger, Sendable {
     
     public static var defaultTag: String { "Network Logger" }
     
@@ -15,18 +15,21 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
     public let requestLevel  : NetworkLoggingLevel
     public let responseLevel : NetworkLoggingLevel
     
-    private let logStream: LogStream
+    private let logStream   : LogStream
+    private let loggerFilter: LoggerFilter
     private let expectedType: String?
-    private let headerMasks: [HeaderMasks]
+    private let headerMasks : [HeaderMasks]
     
     init(tag: String   = defaultTag,
          logStream     : LogStream,
+         logFilter     : LoggerFilter = .always,
          requestLevel  : NetworkLoggingLevel = .full,
          responseLevel : NetworkLoggingLevel = .full,
          headerMasks   : [HeaderMasks] = [],
          expectedType  : String? = "application/json") {
         self.tag = tag
         self.logStream     = logStream
+        self.loggerFilter  = logFilter
         self.expectedType  = expectedType
         self.headerMasks   = headerMasks
         self.requestLevel  = requestLevel
@@ -70,7 +73,7 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
         
         if isContentType(.json) {
             if let json = try? JSONSerialization.jsonObject(with: body, options: []),
-               let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
+               let jsonData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
                let body = String(data: jsonData, encoding: .utf8) {
                 body.split(whereSeparator: \.isNewline).forEach {
                     messages.append("--- Body: \($0)")
@@ -94,9 +97,11 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
     
     public func log(request: URLRequest, type: LogType) {
         guard canPrint(for: .request) else { return }
-        var messages = ["START --->"]
+        var messages: [String] = []
         
-        if requestLevel.contains(.status) {
+        let filterLevel = loggerFilter.acceptLoggingLevel(for: request)
+        
+        if requestLevel.contains(.status), filterLevel.contains(.status) {
             let prefix = request.method?.rawValue.uppercased() ?? "URL"
             
             if let url = request.url?.absoluteString {
@@ -104,15 +109,18 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
             }
         }
         
-        if requestLevel.contains(.headers) {
+        if requestLevel.contains(.headers), filterLevel.contains(.headers) {
             appendMessagesFor(headers: request.allHTTPHeaderFields, to: &messages)
         }
         
-        if requestLevel.contains(.body) {
+        if requestLevel.contains(.body), filterLevel.contains(.body) {
             let contentType = request.allHTTPHeaderFields?["Content-Type"] ?? expectedType
             write(body: request.httpBody, ofType: contentType, on: &messages)
         }
         
+        guard !messages.isEmpty else { return }
+        
+        messages.insert("START --->", at: 0)
         messages.append("END ----->")
         
         log(messages, for: .request, type: type)
@@ -121,9 +129,11 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
     public func log(response: HTTPURLResponse, with data: Data?, type: LogType) {
         guard canPrint(for: .response) else { return }
         
-        var messages = ["START <---"]
+        let filterLevel = loggerFilter.acceptLoggingLevel(for: response)
         
-        if responseLevel.contains(.status) {
+        var messages: [String] = []
+        
+        if responseLevel.contains(.status), filterLevel.contains(.status) {
             if let url = response.url?.absoluteString {
                 messages.append("--- URL: \(url)")
             }
@@ -131,15 +141,20 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
             messages.append("--- Status: \(response.statusCode)")
         }
         
-        if responseLevel.contains(.headers) {
+        if responseLevel.contains(.headers), filterLevel.contains(.headers) {
             appendMessagesFor(headers: response.allHeaderFields, to: &messages)
         }
         
-        if responseLevel.contains(.body) {
+        if responseLevel.contains(.body), filterLevel.contains(.body) {
             let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? expectedType
             write(body: data, ofType: contentType, on: &messages)
         }
         
+        
+        guard !messages.isEmpty else { return }
+        
+        
+        messages.insert("START <---", at: 0)
         messages.append("END <-----")
         
         log(messages, for: .response, type: type)
@@ -153,7 +168,7 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
     public func log(_ messages: [String], for networkType: NetworkLoggingType, type: LogType) {
         guard canPrint(for: networkType) else { return }
         let message = createMessage(from: messages)
-        logStream.log(message, for: type.osLogType)
+        logStream.log(message, for: type)
         
         logStream.log("\n")
     }
@@ -166,8 +181,11 @@ public final class DefaultLogger<Steam: LogStream>: NetworkLogger, Sendable {
 private extension DefaultLogger {
     
     func transformed(value: String, forKey key: String) -> String {
-        if headerMasks.contains(where: { $0.shouldMask(key: key) }) {
-            return String(repeating: "*", count: min(20, value.count))
+        if let mask = headerMasks.first(where: { $0.shouldMask(key: key) }) {
+            return switch mask.transformation {
+            case .none: HeaderMasks.defaultTransformation(value)
+            case .some(let transformation): transformation(value)
+            }
         }
         
         return value
@@ -187,14 +205,16 @@ private extension DefaultLogger {
 }
 
 
-public extension NetworkLogger where Self == DefaultLogger<OSLogStream> {
+public extension NetworkLogger where Self == DefaultLogger {
     
     static func `default`(requestLevel: NetworkLoggingLevel  = .full,
                           responseLevel: NetworkLoggingLevel = .full,
                           headerMasks: [HeaderMasks] = [],
-                          logStream: OSLogStream = .init()) -> NetworkLogger {
-        DefaultLogger<OSLogStream>(
+                          logFilter: LoggerFilter = .always,
+                          logStream: LogStream = .default) -> NetworkLogger {
+        DefaultLogger(
             logStream: logStream,
+            logFilter: logFilter,
             requestLevel: requestLevel,
             responseLevel: responseLevel,
             headerMasks: headerMasks)
@@ -202,36 +222,16 @@ public extension NetworkLogger where Self == DefaultLogger<OSLogStream> {
     
     static func `default`(logLevel: NetworkLoggingLevel = .full,
                           headerMasks: [HeaderMasks] = [],
-                          logStream: OSLogStream = .init()) -> NetworkLogger {
+                          logFilter: LoggerFilter = .always,
+                          logStream: LogStream = .default) -> NetworkLogger {
         Self.default(
             requestLevel: logLevel,
             responseLevel: logLevel,
             headerMasks: headerMasks,
+            logFilter: logFilter,
             logStream: logStream)
     }
     
     static var `default`: NetworkLogger { Self.default(logLevel: .full) }
-    
-}
-
-
-
-
-import OSLog
-
-public struct OSLogStream: LogStream {
-    
-    private let logger: Logger
-    
-    public init(subsystem: String = Bundle.main.bundleIdentifier ?? "indice.network.client") {
-        self.logger = Logger(subsystem: subsystem, category: "NetworkClient")
-    }
-
-    public func log(_ message: String) {
-        log(message, for: .info)
-    }
-    public func log(_ message: String, for type: OSLogType) {
-        logger.log(level: type, "\(message)")
-    }
     
 }

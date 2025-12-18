@@ -29,21 +29,13 @@ public enum NetworkLoggingType {
 
 public protocol LogStream: Sendable {
     func log(_ message: String)
-    func log(_ message: String, for type: OSLogType)
+    func log(_ message: String, for type: LogType)
 }
 
 public enum LogType: Sendable {
     case info
     case warning
     case critical
-    
-    internal var osLogType: OSLogType {
-        switch self {
-        case .info      : .default
-        case .warning   : .error
-        case .critical  : .fault
-        }
-    }
 }
 
 
@@ -56,18 +48,4 @@ public protocol NetworkLogger: AnyObject, Sendable {
     func log(_ messages : [String], for: NetworkLoggingType, type: LogType)
     func log(request    : URLRequest, type: LogType)
     func log(response   : HTTPURLResponse, with: Data?, type: LogType)
-}
-
-public enum HeaderMasks: Sendable {
-    case has(name: String)
-    case contains(name: String)
-    
-    static let authorization: HeaderMasks = .has(name: "Authorization")
-    
-    internal func shouldMask(key: String) -> Bool {
-        switch self {
-        case .contains(let name): key.contains(name)
-        case .has     (let name): key == name
-        }
-    }
 }

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.2] - XXXX-XX-XX
+
+### News
+- Lowered the supported OS versions back to iOS 13 and macOS 10.15
+- Add `NullHandlingDecoder`, to enable handling of `Optional` response types.
+- Add `LoggerFilter` to further apply logging filtering for each individual `URLRequest`s and `HTTPURLResponse`s.
+- Add optional custom transformation to `HeaderMasks`
+
+### Breaking changes
+- Changed `LoggerProtocol` to use `LogType` instead of `OSLogType` 
+
+
 ## [1.5.1] - 2025-12-08
 
 ### Fixes
