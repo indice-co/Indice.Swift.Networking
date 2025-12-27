@@ -5,11 +5,12 @@
 
 Lightweight Swift networking utilities: a small HTTP client, request builders, encoders/decoders and helpers used across iOS/macOS projects.
 
-- Focus: simple URLRequest construction, common body encodings (JSON, form, multipart), request deduplication, error mapping and pluggable logging/decoding.
+- Network Utilities: Various URLRequest helpers, and builder.
+- Network Client: HTTP client supporting Interceptor chaining, reqeuest/response logging, with default encoding & decoding.
 
 ## Requirements
 
-- Swift 6.2
+- Swift 5.10
 - iOS 13+ / macOS 10.15+
 
 ## Installation
@@ -19,12 +20,9 @@ Lightweight Swift networking utilities: a small HTTP client, request builders, e
 Add the package entry to your Package.swift or use Xcode's SPM UI:
 
 ```swift
-.package(url: "https://github.com/indice-co/Indice.Swift.Networking", .upToNextMajor(from: "1.5.0"))
+.package(url: "https://github.com/indice-co/Indice.Swift.Networking", .upToNextMajor(from: "1.5.1"))
 ```
 
-### Manual
-
-Clone the repository and add the package as a local Swift package or copy the sources you need.
 
 ## Quick start
 
@@ -54,7 +52,9 @@ struct Item: Decodable {
 
 Task {
     do {
-        let response: NetworkClient.Response<[Item]> = try await client.fetch(request: request)
+        let response: NetworkClient.Response<[Item]> 
+            = try await client.fetch(request: request)
+            
         let items = response.item
         
         print("Got items: \(items.count)")
@@ -64,18 +64,10 @@ Task {
 }
 ```
 
-## Decoding and optional responses
 
-- The default decoder is `DefaultDecoder` which uses JSON decoding and also handles plain `String` and `Bool` responses.
-- Use `NullHandlingDecoder` (via `decoder.handlingOptionalResponses`) if the endpoint may return empty bodies (e.g. 204) for optional types.
+## Network Utilities
 
-Example:
-
-```swift
-let client = NetworkClient(decoder: DefaultDecoder().handlingOptionalResponses)
-```
-
-## Request body helpers
+### Request body helpers
 
 - JSON body: `bodyJson(of:)` uses a `JSONDataEncoder` (default: `DefaultJsonEncoder`).
 - Form body: `bodyForm(params:)` and `bodyFormUtf8(params:)` use `DefaultFormEncoder`.
@@ -113,19 +105,172 @@ let request = try URLRequest.build()
     .build()
 ```
 
-## Interceptors and logging
+### URLRequest Builder helper
 
-- `NetworkClient` accepts an array of `Interceptor` instances. A `LoggingInterceptor` is provided for request/response logging.
+The `URLRequest.Builder` (via `URLRequest.builder(with: options)`), guides the request creation. 
+For example a GET request, doesn't use a body
+```swift
+let request = try URLRequest.builder()
+    .get(url: URL(string: "https://api.example.com/upload")!)
+    .bodyJson(of: Payload(name: "Alice")) // ❌ compiler error.
+    .build()
+```
+
+The `URLRequest.Builder` will go through the following stages
+- VERB
+- BODY (when applicable)
+- QUERY Params
+- HEADERS
+
+```swift
+let requestGET = try URLRequest.builder()
+    .get(url: URL(string: "https://api.example.com/upload")!)
+    .add(query: "param1", value: "value1")
+    .add(query: "param2", value: "value2")
+    .add(header: .authorisation(auth: authToken))
+    .build()
+
+let requestPOST = try URLRequest.builder()
+    .post(url: URL(string: "https://api.example.com/upload")!)
+    .bodyJson(of: Payload(name: "Alice"))
+    .add(query: "param", value: "value")
+    .add(header: .authorisation(auth: authToken))
+    .build()
+```
+
+The VERBs that support a request body (`PUT`, `POST`, `PATCH`), require a `body` step on their build chain.
+
+To build one without a body, use the `.noBody()` option.
+
+```swift
+let requestPOST = try URLRequest.builder()
+    .post(url: URL(string: "https://api.example.com/upload")!)
+    .noBody()
+    .add(query: "param", value: "value")
+    .build()
+```
+
+
+
+## Network Client
+
+### Decoding and optional responses
+
+- The default decoder is `DefaultDecoder` which uses JSON decoding and also handles plain `String` and `Bool` responses.
+- Use `NullHandlingDecoder` (via `decoder.handlingOptionalResponses`) if the endpoint may return empty bodies (e.g. 204) for optional types.
 
 Example:
 
+These scenarios will **fail** throwing a `NetworkClient.Error.decodingError` error.
+
 ```swift
-let client = NetworkClient(interceptors: [LoggingInterceptor(level: .debug)])
+let client = NetworkClient(decoder: .default)
+
+// Throws because the expected response is a not null model
+// an empty body, Data(), will no t be decoded to SomeModel
+let response: NetworkClient.Response<SomeModel> 
+    try await client.fetch(request: request)
+
+
+// Throws because while the model is nullable, 
+// the default decoder will still try to decode an empty response body.
+let response: NetworkClient.Response<SomeModel?> 
+    try await client.fetch(request: request)
+
+
+
+
+let clientWithNullDecoder = NetworkClient(decoder: .default.handlingOptionalResponses)
+
+// Throws, while using the `NullHandlingDecoder`, the response is not a nullable model, 
+// so the `Decode` will still try to decode an empty response body.
+let response: NetworkClient.Response<SomeModel> 
+    try await clientWithNullDecoder.fetch(request: request)
+
 ```
 
-## Request de-duplication (instance caching)
+In order to use the `NullHandlingDecoder`, the response type MUST be an `Optional` type.
+Only then will the decoder check the response body length.
 
-- The client can deduplicate identical requests when desired. Call `withInstanceCaching(customHash:)` on a `URLRequest` to enable instance caching. See `URLRequest` extensions in sources for details.
+```swift
+
+let clientWithNullDecoder = NetworkClient(
+    decoder: .default.handlingOptionalResponses)
+
+// This will succeed with a null `reponse.item`
+let response: NetworkClient.Response<SomeModel?> 
+    try await clientWithNullDecoder.fetch(request: request)
+
+```
+
+
+### Interceptors and logging
+
+- `NetworkClient` accepts an array of `Interceptor` instances. Interceptors can modify and react to requests and responses.
+Interceptors are called in the order that are provided when building the `NetworkClient`. 
+
+Example — adding an auth header
+
+```swift
+// Simple interceptor that adds an Authorization header
+struct AuthInterceptor: InterceptorProtocol {
+    let tokenStorage: TokenStorage
+
+    func process(
+        _ request: URLRequest,
+        next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
+    ) async throws -> NetworkClient.ChainResult {
+        let accessToken = try tokenStorage.requireAuthorization
+        
+        let authorizedRequest = request
+            .setting(header: .authorisation(auth: accessToken))
+
+        return try await next(authorizedRequest)
+    }
+}
+
+let client = NetworkClient(interceptors: [AuthInterceptor(tokenStorage: someStorage)])
+```
+
+### Request de-duplication (instance caching)
+
+
+- The client can deduplicate identical requests when desired. Call `withInstanceCaching()` on a `URLRequest` to enable instance caching.
+
+Example — deduplicating two concurrent fetches for the same request:
+
+```swift
+import NetworkClient
+import NetworkUtilities
+
+struct Item: Decodable { let id: Int; let name: String }
+
+let client = NetworkClient()
+
+let request = URLRequest.build()
+    .get(url: URL(string: "https://api.example.com/items")!)
+    .set(header: .accept(type: .json))
+    .build()
+    .withInstanceCaching()
+
+Task {
+    async let first: NetworkClient.Response<[Item]> = try client.fetch(request: request)
+    async let second: NetworkClient.Response<[Item]> = try client.fetch(request: request)
+
+    do {
+        let (r1, r2) = try await (first, second)
+        print("Both responses received; items: \(r1.item.count), \(r2.item.count)")
+    } catch {
+        print("Request failed: \(error)")
+    }
+}
+```
+
+When `withInstanceCaching()` is used the client will perform a single network call for identical requests and return the same response to all awaiting callers.
+
+Note: the instance cache only holds the in-flight task for the original request — the cache entry is removed when that request completes (either success or failure). A subsequent identical request made after completion will start a new HTTP call.
+
+
 
 ## Error mapping
 

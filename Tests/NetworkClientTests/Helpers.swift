@@ -8,8 +8,12 @@
 import NetworkClient
 import Foundation
 
- extension URLRequest {
-    static let example = URLRequest(url: URL(string: "https://example.com")!)
+extension URL {
+   static let example = URL(string: "https://example.com")!
+}
+
+extension URLRequest {
+    static let example = URLRequest(url: .example)
 }
 
 
