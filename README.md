@@ -270,20 +270,80 @@ When `withInstanceCaching()` is used the client will perform a single network ca
 
 Note: the instance cache only holds the in-flight task for the original request — the cache entry is removed when that request completes (either success or failure). A subsequent identical request made after completion will start a new HTTP call.
 
+## Advanced NetworkClient setup
+
+Use a custom `URLSession`, logger, interceptors, decoder and an error mapper to adapt the client to more advanced app needs. Example:
+
+```swift
+import NetworkClient
+import NetworkUtilities
+
+// Custom error for illustration
+enum AuthError: Error { case unauthorized }
+
+// Custom URLSession
+let configuration = URLSessionConfiguration.default
+configuration.timeoutIntervalForRequest = 30
+configuration.waitsForConnectivity = true
+let session = URLSession(configuration: configuration)
+
+// Logger with Authorization header masked
+let logger = DefaultLogger.default(logLevel: .full, headerMasks: [.authorization])
+
+// Simple auth interceptor that adds an Authorization header
+struct SimpleAuthInterceptor: InterceptorProtocol {
+    let tokenProvider: () async throws -> String
+
+    func process(_ request: URLRequest, next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult) async throws -> NetworkClient.ChainResult {
+        let token = try await tokenProvider()
+        let authorized = request.setting(header: .authorisation(auth: token))
+        return try await next(authorized)
+    }
+}
+
+// Error mapper: convert 401 -> AuthError
+let errorMapper = ResponseErrorMapper { info in
+    if info.response.statusCode == 401 { return AuthError.unauthorized }
+    return info.error
+}
+
+let client = NetworkClient(
+    interceptors: [
+        SimpleAuthInterceptor { "Bearer my_access_token" },
+        LoggingInterceptor(logger: logger)
+    ],
+    decoder: .default.handlingOptionalResponses,
+    logging: logger,
+    session: session,
+    apiErrorMapper: errorMapper
+)
+
+// Use the client as usual
+let request = URLRequest.build()
+    .get(url: URL(string: "https://api.example.com/profile")!)
+    .set(header: .accept(type: .json))
+    .build()
+
+Task {
+    do {
+        let response: NetworkClient.Response<Profile> = try await client.fetch(request: request)
+        print("Got profile: \(response.item)")
+    } catch {
+        print("Request failed: \(error)")
+    }
+}
+```
+
+This setup demonstrates injecting a custom `URLSession` (timeouts, connectivity), a `DefaultLogger` with header masking, an auth interceptor, a `NullHandlingDecoder` wrapper (`handlingOptionalResponses`) and a `ResponseErrorMapper` to translate HTTP errors into domain errors.
 
 
-## Error mapping
+
+### Error mapping
 
 - By default the client throws `NetworkClient.Error.apiError(response:data:)` for non-2xx responses.
 - Customize mapping by providing a `ResponseErrorMapper` to the `NetworkClient` initializer to convert server errors into domain-specific errors.
 
-## Testing
 
-Run tests with:
-
-```bash
-swift test
-```
 
 ## Where to look in the codebase
 
@@ -292,12 +352,3 @@ swift test
 - Encoders: `Sources/NetworkUtilities/Encoding.swift`
 - Decoders: `Sources/NetworkClient/Protocols/Decoding` (including `DefaultDecoder` and `NullHandlingDecoder`)
 - Interceptors & logging: `Sources/NetworkClient/Helpers` and `Sources/NetworkClient/Protocols/Logging`
-
-## Contributing
-
-Contributions, bug reports and PRs are welcome. Follow the repository style and include tests for new behavior.
-
-## License
-
-This project is licensed under the terms in the LICENSE file.
-
