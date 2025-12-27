@@ -5,6 +5,13 @@
 //  Created by Nikolas Konstantakopoulos on 26/2/22.
 //
 
+
+
+// NetworkUtilities — URL extensions
+// Small helpers for extracting query parameters and defining a safe
+// `CharacterSet` for percent-encoding query values.
+
+
 import Foundation
 
 extension URL {

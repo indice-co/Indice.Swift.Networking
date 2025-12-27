@@ -5,6 +5,14 @@
 //  Created by Nikolas Konstantakopoulos on 4/2/22.
 //
 
+
+
+// NetworkUtilities — URLRequestBuilder
+// Fluent API for constructing `URLRequest` values: HTTP method, headers,
+// query items, JSON/form/multipart bodies and helpers for multipart file parts.
+//
+
+
 import Foundation
 
 public struct URLRequestBuilderOptions {
@@ -122,7 +130,7 @@ extension URLRequest {
     public typealias HeaderBuilder  = URLRequestHeaderBuilder
     public typealias BodyBuilder    = URLRequestBodyBuilder
     
-    public static func builder(options: Builder.Options? = nil) -> Builder {
+    public static func builder(with options: Builder.Options? = nil) -> Builder {
         URLRequestBuilder(options: options ?? .init(
             encoder: DefaultJsonEncoder(),
             formEncoder: DefaultFormEncoder()))
@@ -300,14 +308,14 @@ extension URLRequest {
             return self as QueryBuilder
         }
         
-        func add(queryItems items: [String: String])  -> QueryBuilder {
+        func add(queryItems items: [String: String]) -> QueryBuilder {
             queryItems.append(contentsOf: items.map {
                 .init(name: $0.key, value: $0.value)
             })
             return self as QueryBuilder
         }
         
-        func add(queryItems items: [URLQueryItem])    -> QueryBuilder {
+        func add(queryItems items: [URLQueryItem]) -> QueryBuilder {
             queryItems.append(contentsOf: items)
             return self as QueryBuilder
         }

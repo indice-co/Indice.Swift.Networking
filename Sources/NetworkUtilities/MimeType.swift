@@ -6,6 +6,11 @@
 //
 
 
+// NetworkUtilities — MimeType
+// Helper to infer a file's MIME type from its URL. Uses modern
+// `UniformTypeIdentifiers` where available and falls back to
+// legacy system APIs on older platforms.
+
 import UniformTypeIdentifiers
 
 #if os(iOS)

@@ -5,10 +5,16 @@
 //  Created by Nikolas Konstantakopoulos on 28/1/25.
 //
 
+// MARK: - NetworkUtilities — Encoding
+//
+// Utilities for encoding request bodies. Exposes a JSON encoder and a
+// form-url-encoded encoder used by the request builder in NetworkClient.
+//
+// See README.md in this folder for quick examples.
 // MARK: - Form Encoder
 import Foundation
 
-public enum BodyEncondingError: Swift.Error {
+public enum BodyEncodingError: Swift.Error {
     case json(EncodingError.Context?)
     case form
 }
@@ -40,7 +46,7 @@ public final class DefaultJsonEncoder: JSONEncoder, JSONDataEncoder, @unchecked 
         do {
             return try super.encode(value)
         } catch EncodingError.invalidValue(_, let context) {
-            throw BodyEncondingError.json(context)
+            throw BodyEncodingError.json(context)
         }
     }
 }
@@ -50,7 +56,7 @@ public final class DefaultFormEncoder: FormDataEncoder {
     
     public func encode(_ params: Params) throws -> Data {
         guard let data = percentEncodedString(params: params).data(using: .utf8) else {
-            throw BodyEncondingError.form
+            throw BodyEncodingError.form
         }
         
         return data

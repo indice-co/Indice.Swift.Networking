@@ -5,6 +5,13 @@
 //  Created by Nikolas Konstantakopoulos on 30/7/24.
 //
 
+
+
+// NetworkUtilities — URLRequest convenience starters
+// Small convenience extensions that expose `URLRequest.get/put/post/...`
+// builder entry points to start fluent request construction.
+
+
 import Foundation
 
 public extension URLRequest {

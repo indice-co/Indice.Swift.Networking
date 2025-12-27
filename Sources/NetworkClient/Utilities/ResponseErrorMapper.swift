@@ -9,7 +9,7 @@ import Foundation
 
 /// Handler replace the default error thrown by the `NetworkClient` on a `HTTPURLResponse` with error `statusCode`
 ///
-/// This handler is used only if a valid `HTTPURLResponse` returns with an error status code (i.e. outside the 200 range).
+/// This handler is used only if a valid `HTTPURLResponse` returns with an error status code (i.e. outside the 200...299 range).
 public struct ResponseErrorMapper: Sendable {
     
     /// Provided information about the error received by an http request
@@ -31,7 +31,7 @@ public struct ResponseErrorMapper: Sendable {
     
     let map: @Sendable (Info) async -> Swift.Error
     
-    public init(map: @Sendable @escaping (Info) async -> Error) {
+    public init(map: @Sendable @escaping (Info) async -> Swift.Error) {
         self.map = map
     }
     

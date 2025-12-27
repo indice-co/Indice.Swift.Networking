@@ -1,11 +1,15 @@
-import XCTest
+import Testing
+import Foundation
 @testable import NetworkUtilities
 
-final class URLRequestMethodTests: XCTestCase {
+@Suite("URLRequestMethodTests")
+final class URLRequestMethodTests {
         
     private let testURL = URL(string: "https://www.indice.gr")!
     
-    func testURLRequestHTTPVerb() throws {
+    
+    @Test
+    func `http verb matching`() throws {
         let verbs: [String: URLRequest.HTTPMethod] = ["GET"    : .get,
                                                       "PUT"    : .put,
                                                       "POST"   : .post,
@@ -17,8 +21,8 @@ final class URLRequestMethodTests: XCTestCase {
         for (written, typed) in verbs {
             let created = URLRequest.HTTPMethod(rawValue: written)
             
-            XCTAssertNotNil(created)
-            XCTAssertEqual(typed, created)
+            #expect(created != nil)
+            #expect(typed == created)
         }
         
         
@@ -28,7 +32,7 @@ final class URLRequestMethodTests: XCTestCase {
             var request = URLRequest(url: testURL)
             request.method = typed
             
-            XCTAssertEqual(request.httpMethod, written)
+            #expect(request.httpMethod == written)
         }
         
         
@@ -38,12 +42,13 @@ final class URLRequestMethodTests: XCTestCase {
             var request = URLRequest(url: testURL)
             request.httpMethod = written
             
-            XCTAssertEqual(request.method, typed)
+            #expect(request.method == typed)
         }
     }
     
     
-    func testURLRequestBuilder_GET() throws {
+    @Test
+    func `method verb GET`() throws {
         let built = URLRequest
             .get(url: testURL)
             .build()
@@ -55,11 +60,12 @@ final class URLRequestMethodTests: XCTestCase {
             return request
         }()
         
-        XCTAssertEqual(built, test)
+        #expect(built == test)
     }
 
 
-    func testURLRequestBuilder_PUT() throws {
+    @Test
+    func `method verb PUT`() throws {
         let built = URLRequest
             .put(url: testURL)
             .noBody()
@@ -72,10 +78,12 @@ final class URLRequestMethodTests: XCTestCase {
             return request
         }()
         
-        XCTAssertEqual(built, test)
+        #expect(built == test)
     }
 
-    func testURLRequestBuilder_POST() throws {
+    
+    @Test
+    func `method verb POST`() throws {
         let built = URLRequest
             .post(url: testURL)
             .noBody()
@@ -88,11 +96,12 @@ final class URLRequestMethodTests: XCTestCase {
             return request
         }()
         
-        XCTAssertEqual(built, test)
+        #expect(built == test)
     }
     
     
-    func testURLRequestBuilder_PATCH() throws {
+    @Test
+    func `method verb PATCH`() throws {
         let built = URLRequest
             .patch(url: testURL)
             .noBody()
@@ -105,11 +114,12 @@ final class URLRequestMethodTests: XCTestCase {
             return request
         }()
         
-        XCTAssertEqual(built, test)
+        #expect(built == test)
     }
     
     
-    func testURLRequestBuilder_DELETE() throws {
+    @Test
+    func `method verb DELETE`() throws {
         let built = URLRequest
             .delete(url: testURL)
             .build()
@@ -121,7 +131,7 @@ final class URLRequestMethodTests: XCTestCase {
             return request
         }()
         
-        XCTAssertEqual(built, test)
+        #expect(built == test)
     }
     
 }

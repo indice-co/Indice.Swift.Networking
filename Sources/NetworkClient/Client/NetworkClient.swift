@@ -51,7 +51,7 @@ public final class NetworkClient: Sendable {
     private let requestTasks = AtomicStorage<String, ResultTask>()
         
     public init(interceptors: [Interceptor] = [],
-                decoder: Decoder = .default,
+                decoder: Decoder = .default.handlingOptionalResponses,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
@@ -62,6 +62,7 @@ public final class NetworkClient: Sendable {
         self.apiErrorMapper = apiErrorMapper
     }
     
+    @available(*, deprecated, message: "use the default get(path:) function instead")
     public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
@@ -82,7 +83,7 @@ public final class NetworkClient: Sendable {
             return .init(try decoder.decode(data: result.data), httpResponse: result.response)
         } catch let err {
             if let decodingError = err as? DecodingError {
-                logging.log(decodingError.description,  for: .response, type: .critical)
+                logging.log(decodingError.description, for: .response, type: .critical)
                 throw errorOfType(.decodingError(type: decodingError))
             } else {
                 logging.log(err.localizedDescription, for: .response, type: .warning)

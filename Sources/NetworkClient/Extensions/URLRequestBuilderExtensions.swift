@@ -11,7 +11,7 @@ import NetworkUtilities
 
 public extension URLRequest.Builder {
     static func build() -> URLRequest.Builder {
-        URLRequest.builder(options: .init(
+        URLRequest.builder(with: .init(
             encoder: DefaultJsonEncoder(),
             formEncoder: DefaultFormEncoder()))
     }

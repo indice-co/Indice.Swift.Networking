@@ -5,6 +5,13 @@
 //  Created by Nikolas Konstantakopoulos on 28/1/22.
 //
 
+
+
+// NetworkUtilities — URLRequest properties
+// Common `URLRequest` helper types and utilities: HTTP methods, content
+// types and header helpers used across the NetworkClient.
+
+
 import Foundation
 
 // MARK: - Helper types
