@@ -1,15 +1,12 @@
 //
-//  URLRequestExtensions.swift
+//  URLRequestProperties.swift
 //  
 //
 //  Created by Nikolas Konstantakopoulos on 28/1/22.
 //
-
-
-
-// NetworkUtilities — URLRequest properties
-// Common `URLRequest` helper types and utilities: HTTP methods, content
-// types and header helpers used across the NetworkClient.
+//  NetworkUtilities — URLRequest properties
+//  Common `URLRequest` helper types and utilities: HTTP methods, content
+//  types and header helpers used across the NetworkClient.
 
 
 import Foundation
@@ -79,30 +76,28 @@ extension URLRequest {
 
 extension URLRequest {
     
-    /** Adds a value to a header field.
-     
-        Any existing value of the header field will be replaced.
-    */
+    /// Sets a value to a header field.
+    ///
+    /// Any existing value of the header field will be replaced.
     public mutating func set(header: HeaderType) {
         setValue(header.value, forHTTPHeaderField: header.name)
     }
     
-    /** Adds a value to a header field. */
+    /// Adds a value to a header field.
     public mutating func add(header: HeaderType) {
         addValue(header.value, forHTTPHeaderField: header.name)
     }
     
-    /** Adds a value to a header field.
-     
-        Any existing value of the header field will be replaced.
-    */
+    /// Returns a copy of the `URLRequest` with  the header value set.
+    ///
+    /// Any existing value of the header field will be replaced.
     public func setting(header: HeaderType) -> URLRequest {
         var request = self
         request.set(header: header)
         return request
     }
     
-    /** Adds a value to a header field. */
+    /// Returns a `URLRequest` with  the header value added.
     public func adding(header: HeaderType) -> URLRequest {
         var request = self
         request.add(header: header)
@@ -118,14 +113,5 @@ extension URLRequest {
     public var method: HTTPMethod? {
         get { .init(rawValue: httpMethod ?? "") }
         set { httpMethod = newValue?.rawValue   }
-    }
-
-    @available(*, deprecated, renamed: "get(url:)", message: "This method has a hidden throw possibility. User the non throwing one, handle your own URL creation!")
-    public static func get(path: String) -> URLRequest {
-        URLRequest(url: URL(string: path)!)
-    }
-    
-    public static func get(url: URL) -> URLRequest {
-        URLRequest(url: url)
-    }
+    }    
 }

@@ -4,12 +4,10 @@
 //
 //  Created by Nikolas Konstantakopoulos on 30/7/24.
 //
-
-
-// NetworkUtilities — MimeType
-// Helper to infer a file's MIME type from its URL. Uses modern
-// `UniformTypeIdentifiers` where available and falls back to
-// legacy system APIs on older platforms.
+//  NetworkUtilities — MimeType
+//  Helper to infer a file's MIME type from its URL. Uses modern
+//  `UniformTypeIdentifiers` where available and falls back to
+//  legacy system APIs on older platforms.
 
 import UniformTypeIdentifiers
 
@@ -18,6 +16,8 @@ import MobileCoreServices
 #endif
 
 internal extension URL {
+    
+    /// Returns the MimeType value if the URL is a valid fileURL
     var mimeType: String? {
         guard self.isFileURL else {
             return nil

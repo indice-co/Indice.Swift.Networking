@@ -1,14 +1,11 @@
 //
-//  DateFormatter.swift
-//  
+//  Params.swift
+//
 //  Created by Nikolas Konstantakopoulos on 14/2/22.
 //
-
-
-
-// NetworkUtilities — Params
-// Convenience typealiases and helpers for working with request parameters
-// (dictionary-backed `Params` for form or query encoding).
+//  NetworkUtilities — Params
+//  Convenience typealiases and helpers for working with request parameters
+//  (dictionary-backed `Params` for form or query encoding).
 
 
 import Foundation
