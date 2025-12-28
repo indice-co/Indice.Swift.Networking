@@ -37,7 +37,7 @@ public final class NullHandlingDecoder: NetworkClient.Decoder {
 }
 
 public extension DecoderProtocol where Self == NullHandlingDecoder {
-    static var nullHandingDefault: Self { .init() }
+    static var nullHandlingDefault: Self { .init() }
 }
 
 public extension DecoderProtocol where Self: Sendable {

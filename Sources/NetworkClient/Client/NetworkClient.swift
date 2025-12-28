@@ -137,18 +137,10 @@ private extension NetworkClient {
     }
     
     
-    private func stableKey(for request: URLRequest) -> String {
-        var hasher = Hasher()
-        hasher.combine(request.url?.absoluteString ?? "")
-        hasher.combine(request.httpMethod ?? "GET")
-        hasher.combine(request.httpBody ?? .init())
-        return String(hasher.finalize())
-    }
-    
     private func dataFetch(request: URLRequest) async throws -> ChainResult {
         await requestTasks.removeCancelled()
         
-        let incomingKey = request.instanceHash ?? stableKey(for: request)
+        let incomingKey = request.instanceHash ?? request.stableKey()
         let requestKey = request.shouldCacheInstance ? incomingKey : incomingKey + "_" + UUID().uuidString
         
         if request.shouldCacheInstance {
@@ -223,9 +215,50 @@ public extension URLRequest {
     func clearingInstanceCaching() -> URLRequest {
         var m = self
         
-        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceCachingKey)
-        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceHashingKey)
+        var headers = m.allHTTPHeaderFields ?? [:]
         
+        headers.removeValue(forKey: Self.instanceCachingKey)
+        headers.removeValue(forKey: Self.instanceHashingKey)
+
+        m.allHTTPHeaderFields = headers
+
         return m
     }
+    
+    func stableKey() -> String {
+        var hasher = Hasher()
+
+        if
+            let url = self.url,
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        {
+            let scheme = components.scheme?.lowercased() ?? ""
+            let host = components.host?.lowercased() ?? ""
+            let port = components.port.map { ":\($0)" } ?? ""
+            let path = components.path
+
+            var normalizedQuery = ""
+            if let items = components.queryItems, !items.isEmpty {
+                let sorted = items.sorted { a, b in
+                    if a.name == b.name {
+                        return (a.value ?? "") < (b.value ?? "")
+                    }
+
+                    return a.name < b.name
+                }
+                normalizedQuery = sorted.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
+            }
+
+            let normalized = "\(scheme)://\(host)\(port)\(path)\(normalizedQuery.isEmpty ? "" : "?\(normalizedQuery)")"
+            hasher.combine(normalized)
+        } else {
+            hasher.combine(self.url?.absoluteString ?? "")
+        }
+
+        hasher.combine(self.method ?? .get)
+        hasher.combine(self.httpBody ?? .init())
+
+        return String(hasher.finalize())
+    }
+    
 }
