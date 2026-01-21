@@ -41,7 +41,10 @@ internal actor AtomicStorage<K: Hashable & Sendable, V: Sendable> {
 
 extension AtomicStorage where V == NetworkClient.ResultTask {
     func getOrInsert(_ key: K, create: @Sendable () -> V) -> V {
-        if let existing = dictionary[key] { return existing }
+        if let existing = dictionary[key] {
+            return existing
+        }
+        
         let new = create()
         dictionary[key] = new
         return new

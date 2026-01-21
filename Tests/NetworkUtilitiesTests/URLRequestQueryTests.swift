@@ -17,6 +17,7 @@ final class URLRequestQueryTests {
     
     private let testQueries = [URLQueryItem(name: "name1", value: "value1"),
                                URLQueryItem(name: "name2", value: "value2")]
+    
     @Test
     func dictionaryQueryParameters() throws {
         let built = URLRequest.builder()
