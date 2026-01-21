@@ -51,7 +51,7 @@ public final class NetworkClient: Sendable {
     private let requestTasks = AtomicStorage<String, ResultTask>()
         
     public init(interceptors: [Interceptor] = [],
-                decoder: Decoder = .default,
+                decoder: Decoder = .default.handlingOptionalResponses,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
@@ -62,6 +62,7 @@ public final class NetworkClient: Sendable {
         self.apiErrorMapper = apiErrorMapper
     }
     
+    @available(*, deprecated, message: "use the default get(path:) function instead")
     public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
@@ -82,7 +83,7 @@ public final class NetworkClient: Sendable {
             return .init(try decoder.decode(data: result.data), httpResponse: result.response)
         } catch let err {
             if let decodingError = err as? DecodingError {
-                logging.log(decodingError.description,  for: .response, type: .critical)
+                logging.log(decodingError.description, for: .response, type: .critical)
                 throw errorOfType(.decodingError(type: decodingError))
             } else {
                 logging.log(err.localizedDescription, for: .response, type: .warning)
@@ -136,18 +137,10 @@ private extension NetworkClient {
     }
     
     
-    private func stableKey(for request: URLRequest) -> String {
-        var hasher = Hasher()
-        hasher.combine(request.url?.absoluteString ?? "")
-        hasher.combine(request.httpMethod ?? "GET")
-        hasher.combine(request.httpBody ?? .init())
-        return String(hasher.finalize())
-    }
-    
     private func dataFetch(request: URLRequest) async throws -> ChainResult {
         await requestTasks.removeCancelled()
         
-        let incomingKey = request.instanceHash ?? stableKey(for: request)
+        let incomingKey = request.instanceHash ?? request.stableKey()
         let requestKey = request.shouldCacheInstance ? incomingKey : incomingKey + "_" + UUID().uuidString
         
         if request.shouldCacheInstance {
@@ -222,9 +215,50 @@ public extension URLRequest {
     func clearingInstanceCaching() -> URLRequest {
         var m = self
         
-        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceCachingKey)
-        m.allHTTPHeaderFields?.removeValue(forKey: Self.instanceHashingKey)
+        var headers = m.allHTTPHeaderFields ?? [:]
         
+        headers.removeValue(forKey: Self.instanceCachingKey)
+        headers.removeValue(forKey: Self.instanceHashingKey)
+
+        m.allHTTPHeaderFields = headers
+
         return m
     }
+    
+    func stableKey() -> String {
+        var hasher = Hasher()
+
+        if
+            let url = self.url,
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        {
+            let scheme = components.scheme?.lowercased() ?? ""
+            let host = components.host?.lowercased() ?? ""
+            let port = components.port.map { ":\($0)" } ?? ""
+            let path = components.path
+
+            var normalizedQuery = ""
+            if let items = components.queryItems, !items.isEmpty {
+                let sorted = items.sorted { a, b in
+                    if a.name == b.name {
+                        return (a.value ?? "") < (b.value ?? "")
+                    }
+
+                    return a.name < b.name
+                }
+                normalizedQuery = sorted.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
+            }
+
+            let normalized = "\(scheme)://\(host)\(port)\(path)\(normalizedQuery.isEmpty ? "" : "?\(normalizedQuery)")"
+            hasher.combine(normalized)
+        } else {
+            hasher.combine(self.url?.absoluteString ?? "")
+        }
+
+        hasher.combine(self.method ?? .get)
+        hasher.combine(self.httpBody ?? .init())
+
+        return String(hasher.finalize())
+    }
+    
 }

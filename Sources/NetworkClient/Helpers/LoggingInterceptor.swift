@@ -15,7 +15,7 @@ public struct LoggingInterceptor: NetworkClient.Interceptor {
     init(
         level: NetworkLoggingLevel,
         headerMasks: [HeaderMasks] = [],
-        logStream: OSLogStream = .init()
+        logStream: LogStream = .default
     ) {
         self.init(logger: .default(
             logLevel: level,
