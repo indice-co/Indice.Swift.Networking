@@ -294,7 +294,10 @@ let logger = DefaultLogger.default(logLevel: .full, headerMasks: [.authorization
 struct SimpleAuthInterceptor: InterceptorProtocol {
     let tokenProvider: () async throws -> String
 
-    func process(_ request: URLRequest, next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult) async throws -> NetworkClient.ChainResult {
+    func process(
+        _ request: URLRequest, 
+        next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
+    ) async throws -> NetworkClient.ChainResult {
         let token = try await tokenProvider()
         let authorized = request.setting(header: .authorisation(auth: token))
         return try await next(authorized)
@@ -303,14 +306,16 @@ struct SimpleAuthInterceptor: InterceptorProtocol {
 
 // Error mapper: convert 401 -> AuthError
 let errorMapper = ResponseErrorMapper { info in
-    if info.response.statusCode == 401 { return AuthError.unauthorized }
+    if info.response.statusCode == 401 { 
+        return AuthError.unauthorized 
+    }
+
     return info.error
 }
 
 let client = NetworkClient(
     interceptors: [
-        SimpleAuthInterceptor { "Bearer my_access_token" },
-        LoggingInterceptor(logger: logger)
+        SimpleAuthInterceptor { "Bearer my_access_token" }
     ],
     decoder: .default.handlingOptionalResponses,
     logging: logger,

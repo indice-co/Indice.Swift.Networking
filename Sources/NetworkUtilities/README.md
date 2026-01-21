@@ -16,7 +16,7 @@ Usage examples
 
 Build a JSON POST request:
 
-```
+```swift
 let request = try URLRequest.post(url: myURL)
     .bodyJson(of: myEncodable)
     .add(header: .authorisation(auth: "Bearer token"))
@@ -25,14 +25,14 @@ let request = try URLRequest.post(url: myURL)
 
 Create a multipart upload:
 
-```
+```swift
 let request = try URLRequest.post(url: myURL)
     .bodyMultipart { multipart in
-        multipart.add(
-            key: "file", 
+        _ = try multipart.add(
+            key: "file",
             file: .init(
-                file: fileURL, 
-                filename: "photo.jpg", 
+                file: fileURL,
+                filename: "photo.jpg",
                 mimeType: .auto()))
     }
     .build()

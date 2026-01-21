@@ -30,7 +30,7 @@ struct NetworkClientVarietyTests {
     
     
     @Test
-    func `interceptor should be called once`() async throws {
+    func `interceptor should be called num of times`() async throws {
         actor CallFlag {
             private(set)
             var called: Int = 0
@@ -48,14 +48,24 @@ struct NetworkClientVarietyTests {
             }
         }
 
-        let flag = CallFlag()
-        let interceptor = TestInterceptor(flag: flag)
-        let client = NetworkClient(interceptors: [interceptor])
         
-        _ = try? await client.fetch(request: .example)
+        let tries = [0, 1, 5, 10]
         
-        #expect(await flag.callCount() == 1)
-        
+        for tryCount in tries {
+            let flag = CallFlag()
+            let interceptor = TestInterceptor(flag: flag)
+            let client = NetworkClient(interceptors: [interceptor])
+            
+            await withTaskGroup { group in
+                (0..<tryCount).forEach { _ in
+                    group.addTask {
+                        _ = try? await client.fetch(request: .example)
+                    }
+                }
+            }
+            
+            #expect(await flag.callCount() == tryCount)
+        }
     }
 
     @Test

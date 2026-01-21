@@ -10,6 +10,18 @@
 import OSLog
 
 
+fileprivate struct FallbackLogStream: LogStream {
+    let subsystem: String
+    
+    public func log(_ message: String) {
+        NSLog("%@: %@", subsystem, message)
+    }
+    
+    public func log(_ message: String, for type: LogType) {
+        NSLog("%@ | %@: %@", subsystem, "\(type)", message)
+    }
+}
+
 @available(iOS 14, macOS 11, *)
 public struct OSLogStream: LogStream {
     
@@ -42,33 +54,21 @@ internal extension LogType {
 
 public struct DefaultLogStream: LogStream {
     
-    private var osLogStream: LogStream?
-    
-    private let subsystem: String
-    
+    private let osLogStream: LogStream
     public init(subsystem: String = Bundle.main.bundleIdentifier ?? "indice.network.client") {
-        self.subsystem = subsystem
         if #available(iOS 14, macOS 11, *) {
             self.osLogStream = OSLogStream(subsystem: subsystem)
         } else {
-            self.osLogStream = nil
+            self.osLogStream = FallbackLogStream(subsystem: subsystem)
         }
     }
     
     public func log(_ message: String) {
-        if #available(iOS 14, macOS 11, *), let osLogStream = self.osLogStream {
-            osLogStream.log(message)
-        } else {
-            NSLog("%@", message)
-        }
+        osLogStream.log(message)
     }
     
     public func log(_ message: String, for type: LogType) {
-        if #available(iOS 14, macOS 11, *), let osLogStream = self.osLogStream {
-            osLogStream.log(message, for: type)
-        } else {
-            NSLog("%@", message)
-        }
+        osLogStream.log(message, for: type)
     }
     
 }
