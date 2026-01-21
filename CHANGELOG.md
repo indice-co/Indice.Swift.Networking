@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5.2] - XXXX-XX-XX
+## [1.5.2] - 2026-01-21
 
 ### News
 - Lowered the supported OS versions back to iOS 13 and macOS 10.15
