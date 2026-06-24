@@ -83,7 +83,7 @@ struct NetworkClientVarietyTests {
 
     
     @Test
-    func `request should cachce instansce`() async throws {
+    func `request should cache instance`() async throws {
         let client = NetworkClient()
         let request = URLRequest.example.withInstanceCaching()
         async let first  = client.fetch(request: request)

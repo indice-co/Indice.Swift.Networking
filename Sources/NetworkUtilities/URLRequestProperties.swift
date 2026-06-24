@@ -43,15 +43,20 @@ extension URLRequest {
     }
     
     public enum HeaderType: Sendable {
-        case authorisation (auth: String)
+        case authorization (auth: String)
         case accept        (type: ContentType)
         case content       (type: ContentType)
         case language      (value: String)
         case custom        (name: String, value: String)
         
+        @available(*, deprecated, renamed: "authorization(auth:)", message: "Use the new renamed version")
+        public static func authorisation(auth: String) -> Self {
+            .authorization(auth: auth)
+        }
+        
         public var name: String {
             switch self {
-            case .authorisation       : return "Authorization"
+            case .authorization       : return "Authorization"
             case .accept              : return "Accept"
             case .content             : return "Content-Type"
             case .language            : return "Accept-Language"
@@ -61,7 +66,7 @@ extension URLRequest {
         
         public var value: String {
             switch self {
-            case .authorisation(let token)    : return token
+            case .authorization(let token)    : return token
             case .accept       (let type)     : return type.value
             case .content      (let type)     : return type.value
             case .language     (let value)    : return value

@@ -226,6 +226,8 @@ public extension URLRequest {
     }
     
     func stableKey() -> String {
+        // TODO: define a strategy to include headers in the hash
+                
         var hasher = Hasher()
 
         if

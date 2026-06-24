@@ -19,4 +19,3 @@ public extension URLRequest {
     static func patch (url: URL) -> URLRequest.BodyBuilder  { builder().patch (url: url) }
     static func delete(url: URL) -> URLRequest.QueryBuilder { builder().delete(url: url) }
 }
-

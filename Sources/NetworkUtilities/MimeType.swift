@@ -23,25 +23,23 @@ internal extension URL {
             return nil
         }
         
-        if #available(iOS 14, macOS 11.0, *),
-           let mime = UTType(filenameExtension: pathExtension)?.preferredMIMEType
-        {
-            return mime
+        guard #unavailable(iOS 14, macOS 11) else {
+            return UTType(
+                filenameExtension: pathExtension)?
+                .preferredMIMEType
         }
         
-        if
-            let id = UTTypeCreatePreferredIdentifierForTag(
-                kUTTagClassFilenameExtension,
-                pathExtension as CFString, nil
-            )?.takeRetainedValue(),
-            
-            let contentType = UTTypeCopyPreferredTagWithClass(
-                id, kUTTagClassMIMEType
-            )?.takeRetainedValue()
-        {
-            return contentType as String
+        let id = UTTypeCreatePreferredIdentifierForTag(
+            kUTTagClassFilenameExtension,
+            pathExtension as CFString,
+            nil
+        )?.takeRetainedValue()
+        
+        let contentType = id.map { id in
+            UTTypeCopyPreferredTagWithClass(id, kUTTagClassMIMEType)?
+                .takeRetainedValue()
         }
-
-        return nil
+        
+        return contentType as? String
     }
 }

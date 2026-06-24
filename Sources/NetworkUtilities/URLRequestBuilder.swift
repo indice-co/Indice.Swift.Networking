@@ -38,8 +38,10 @@ public protocol URLRequestHeaderBuilder: URLRequestResultBuilder {
 
 public protocol URLRequestQueryBuilder: URLRequestHeaderBuilder {
     func add(query: String, value: String?) -> URLRequestQueryBuilder
-    func add(queryItems: [String: String])  -> URLRequestQueryBuilder
     func add(queryItems: [URLQueryItem])    -> URLRequestQueryBuilder
+    
+    @available(*, deprecated, message: "Use the other overloads that keep the sorting stable.")
+    func add(queryItems: [String: String])  -> URLRequestQueryBuilder
 }
 
 public protocol URLRequestBodyBuilder {
@@ -198,10 +200,19 @@ extension URLRequest {
         
         // MARK: - MethodBuilder
         
+        @available(*, deprecated, renamed: "get(url:)")
         func get   (path: String) -> QueryBuilder   { get   (url: URL(string: path)!) }
+        
+        @available(*, deprecated, renamed: "get(url:)")
         func put   (path: String) -> BodyBuilder    { put   (url: URL(string: path)!) }
+        
+        @available(*, deprecated, renamed: "get(url:)")
         func post  (path: String) -> BodyBuilder    { post  (url: URL(string: path)!) }
+        
+        @available(*, deprecated, renamed: "get(url:)")
         func patch (path: String) -> BodyBuilder    { patch (url: URL(string: path)!) }
+        
+        @available(*, deprecated, renamed: "get(url:)")
         func delete(path: String) -> QueryBuilder   { delete(url: URL(string: path)!) }
         
         func get(url: URL)  -> QueryBuilder {
@@ -309,9 +320,9 @@ extension URLRequest {
         }
         
         func add(queryItems items: [String: String]) -> QueryBuilder {
-            queryItems.append(contentsOf: items.map {
-                .init(name: $0.key, value: $0.value)
-            })
+            queryItems.append(contentsOf: items
+                .sorted(by: { $0.key < $1.key })
+                .map { .init(name: $0.key, value: $0.value) })
             return self as QueryBuilder
         }
         
@@ -325,7 +336,10 @@ extension URLRequest {
 
         func build() -> URLRequest {
             if !queryItems.isEmpty, let url = request.url {
-                var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
+                var components = URLComponents(
+                    url: url,
+                    resolvingAgainstBaseURL: true)!
+                
                 let originalItems = components.queryItems ?? []
 
                 var finalItems = originalItems.filter { ogItem in
