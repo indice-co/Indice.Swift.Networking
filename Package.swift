@@ -13,6 +13,7 @@ let package = Package(
         .library(
             name: "NetworkClient",
             targets: ["NetworkClient"]),
+        
     ],
     targets: [
         .target(

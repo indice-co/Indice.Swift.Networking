@@ -359,6 +359,18 @@ extension URLRequest {
 }
 
 
+// MARK: Builder extensions
+
+public extension URLRequest.BodyBuilder.MultipartBuilder {
+    func add(key: String, file : URL) throws -> URLRequest.BodyBuilder.MultipartBuilder {
+        try self.add(key: key, file: .init(
+            file: file,
+            filename: file.lastPathComponent,
+            mimeType: .auto()))
+    }
+
+}
+
 
 // MARK: Helper extensions
 

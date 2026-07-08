@@ -27,6 +27,7 @@ extension URLRequest {
         case json
         case url(useUTF8Charset: Bool = false)
         case multipart(withBoundary: String)
+        case eventStream
         
         @available(*, deprecated, renamed: "url()", message: "Use the new url(useUTF8Charset:) to add the charset utf-8 or not")
         public static let url: ContentType = url(useUTF8Charset: false)
@@ -34,6 +35,7 @@ extension URLRequest {
         public var value: String {
             switch self {
             case .json                    : "application/json"
+            case .eventStream             : "text/event-stream"
             case .multipart(let boundary) : "multipart/form-data; boundary=\(boundary)"
             case .url(let useUTF8Charset) : useUTF8Charset
                 ? "application/x-www-form-urlencoded; charset=utf-8"
