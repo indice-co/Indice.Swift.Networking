@@ -13,7 +13,9 @@ let package = Package(
         .library(
             name: "NetworkClient",
             targets: ["NetworkClient"]),
-        
+        .library(
+            name: "NetworkStream",
+            targets: ["NetworkStream"]),
     ],
     targets: [
         .target(
@@ -22,6 +24,12 @@ let package = Package(
         .target(
             name: "NetworkClient",
             dependencies: ["NetworkUtilities"]
+        ),
+        .target(
+            name: "NetworkStream",
+            dependencies: [
+                "NetworkClient",
+                "NetworkUtilities"]
         ),
         .testTarget(
             name: "NetworkClientTests",

@@ -40,7 +40,7 @@ public protocol URLRequestQueryBuilder: URLRequestHeaderBuilder {
     func add(query: String, value: String?) -> URLRequestQueryBuilder
     func add(queryItems: [URLQueryItem])    -> URLRequestQueryBuilder
     
-    @available(*, deprecated, message: "Use the other overloads that keep the sorting stable.")
+    @available(*, deprecated, message: "Use the other overloads that keep the preserve the items' sorting.")
     func add(queryItems: [String: String])  -> URLRequestQueryBuilder
 }
 
@@ -50,8 +50,16 @@ public protocol URLRequestBodyBuilder {
     func noBody()                      -> URLRequestQueryBuilder
     func bodyJson<T: Encodable>(of: T) throws -> URLRequestQueryBuilder
     func bodyForm     (params: Params) throws -> URLRequestQueryBuilder
-    func bodyFormUtf8 (params: Params) throws -> URLRequestQueryBuilder
+    func bodyFormUTF8 (params: Params) throws -> URLRequestQueryBuilder
     func bodyMultipart(_ builder: (MultipartBuilder) throws -> ()) rethrows -> URLRequestQueryBuilder
+}
+
+public extension URLRequestBodyBuilder {
+    
+    @available(*, deprecated, renamed: "bodyFormUTF8", message: "use the renamed method. Its the same... ")
+    func bodyFormUtf8(params: Params) throws -> URLRequestQueryBuilder {
+        try self.bodyFormUTF8(params: params)
+    }
 }
 
 public protocol URLRequestMethodBuilder {
@@ -267,7 +275,7 @@ extension URLRequest {
             return self as QueryBuilder
         }
         
-        func bodyFormUtf8(params: Params) throws -> QueryBuilder {
+        func bodyFormUTF8(params: Params) throws -> QueryBuilder {
             request.httpBody = try options.formEncoder.encode(params)
             request.set(header: .content(type: .url(useUTF8Charset: true)))
             
@@ -319,6 +327,7 @@ extension URLRequest {
             return self as QueryBuilder
         }
         
+        @available(*, deprecated, message: "Use the add(queryItems: [URLQueryItem]) overload.")
         func add(queryItems items: [String: String]) -> QueryBuilder {
             queryItems.append(contentsOf: items
                 .sorted(by: { $0.key < $1.key })

@@ -6,36 +6,15 @@
 //
 
 import Foundation
+import NetworkUtilities
 
 
 // MARK: - Client Implementation
 
-public final class NetworkClient: Sendable {
+public final class NetworkClient: RequestProcessor {
     
     public typealias  ChainResult  = (data: Data, response: HTTPURLResponse)
     public typealias  StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
-    
-    public struct Response<T>/*: Sendable where T: Sendable*/ {
-        public let item: T
-        public let httpResponse: HTTPURLResponse
-        
-        init(_ item: T, httpResponse: HTTPURLResponse) {
-            self.item = item
-            self.httpResponse = httpResponse
-        }
-        
-        public var allHeaders: [AnyHashable: Any] {
-            httpResponse.allHeaderFields
-        }
-        
-        public func value(forHeaderKey key: String) -> String? {
-            httpResponse.value(forHTTPHeaderField: key)
-        }
-        
-        public subscript(headerKey: String) -> String? {
-            value(forHeaderKey: headerKey)
-        }
-    }
     
     internal typealias ResultTask = Task<ChainResult, Swift.Error>
     
@@ -44,12 +23,12 @@ public final class NetworkClient: Sendable {
     public typealias Decoder = DecoderProtocol & Sendable
     public typealias Logging = NetworkLogger   & Sendable
     
-    internal let interceptors       : [Interceptor]
-    internal let streamInterceptors : [StreamInterceptor]
-    internal let apiErrorMapper : ResponseErrorMapper
-    internal let decoder : Decoder
-    internal let logging : Logging
-    internal let session : URLSession
+    package let interceptors       : [Interceptor]
+    package let streamInterceptors : [StreamInterceptor]
+    package let apiErrorMapper : ResponseErrorMapper
+    package let decoder : Decoder
+    package let logging : Logging
+    package let session : URLSession
     
     internal let requestTasks = AtomicStorage<String, ResultTask>()
         
@@ -67,7 +46,7 @@ public final class NetworkClient: Sendable {
         self.apiErrorMapper = apiErrorMapper
     }
     
-    @available(*, deprecated, message: "use the default get(path:) function instead")
+    @available(*, deprecated, message: "use the default get(url:) function instead")
     public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
@@ -100,7 +79,7 @@ public final class NetworkClient: Sendable {
 
 extension NetworkClient {
     
-    internal func validate(data: Data, response: URLResponse) async throws -> ChainResult {
+    package func validate(data: Data, response: URLResponse) async throws -> ChainResult {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw errorOfType(.invalidResponse)
         }

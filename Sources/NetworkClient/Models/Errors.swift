@@ -42,7 +42,7 @@ public extension NetworkClient {
 }
 
 
-internal func errorOfType(_ provider: @autoclosure () -> NetworkClient.Error) -> NetworkClient.Error {
+package func errorOfType(_ provider: @autoclosure () -> NetworkClient.Error) -> NetworkClient.Error {
     provider()
 }
 

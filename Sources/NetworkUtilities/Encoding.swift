@@ -38,10 +38,6 @@ public final class DefaultJsonEncoder: JSONEncoder, JSONDataEncoder, @unchecked 
         dateEncodingStrategy = .iso8601
     }
     
-    public required init(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
     public override func encode<T>(_ value: T) throws -> Data where T : Encodable {
         do {
             return try super.encode(value)
