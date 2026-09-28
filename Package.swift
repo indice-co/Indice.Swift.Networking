@@ -31,13 +31,23 @@ let package = Package(
                 "NetworkClient",
                 "NetworkUtilities"]
         ),
+        // Shared fixtures are built only by the test targets; no library product exposes them.
+        .target(
+            name: "NetworkTestSupport",
+            dependencies: ["NetworkClient", "NetworkUtilities"],
+            path: "Tests/NetworkTestSupport"
+        ),
         .testTarget(
             name: "NetworkClientTests",
-            dependencies: ["NetworkClient"]
+            dependencies: ["NetworkClient", "NetworkTestSupport"]
+        ),
+        .testTarget(
+            name: "NetworkStreamTests",
+            dependencies: ["NetworkStream", "NetworkTestSupport"]
         ),
         .testTarget(
             name: "NetworkUtilitiesTests",
-            dependencies: ["NetworkUtilities"]
+            dependencies: ["NetworkUtilities", "NetworkTestSupport"]
         )
     ],
     swiftLanguageModes: [.v6],

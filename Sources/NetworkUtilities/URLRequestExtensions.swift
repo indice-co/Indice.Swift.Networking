@@ -58,13 +58,9 @@ public extension URLRequest {
     func clearingInstanceCaching() -> URLRequest {
         var m = self
         
-        var headers = m.allHTTPHeaderFields ?? [:]
+        m.setValue(nil, forHTTPHeaderField: Self.instanceCachingKey)
+        m.setValue(nil, forHTTPHeaderField: Self.instanceHashingKey)
         
-        headers.removeValue(forKey: Self.instanceCachingKey)
-        headers.removeValue(forKey: Self.instanceHashingKey)
-
-        m.allHTTPHeaderFields = headers
-
         return m
     }
     
@@ -91,6 +87,7 @@ public extension URLRequest {
 
                     return a.name < b.name
                 }
+                
                 normalizedQuery = sorted.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
             }
 

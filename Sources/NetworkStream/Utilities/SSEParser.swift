@@ -78,7 +78,9 @@ struct SSEParser {
     // MARK: Handle stream checkpoints.
     
     private mutating func finishLine() throws -> Frame? {
-        guard var text = String(data: currentLine, encoding: .utf8) else {
+        var text = String(decoding: currentLine, as: UTF8.self)
+
+        guard text.utf8.elementsEqual(currentLine) else {
             throw SSEError.invalidUTF8
         }
         
