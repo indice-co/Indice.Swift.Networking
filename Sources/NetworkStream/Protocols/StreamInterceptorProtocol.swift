@@ -2,10 +2,11 @@
 //  StreamInterceptorProtocol.swift
 //  NetworkClient
 //
-//  Created by Nikolas Konstantakopoulos on 8/7/26.
+//  Created by Nikolas Konstantakopoulos on 28/9/26.
 //
 
 import Foundation
+import NetworkClient
 
 public protocol StreamInterceptorProtocol: Sendable {
     typealias Result = NetworkClient.StreamResult

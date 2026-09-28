@@ -12,7 +12,7 @@
 - Add `StreamProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes SSE Stream operations.
 
 
-## [1.5.3] - 2026-XX-XX
+## [1.5.3] - 2026-09-28
 
 ### Changes
 - Minor internal fixes.

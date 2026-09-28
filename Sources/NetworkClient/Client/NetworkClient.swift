@@ -13,33 +13,28 @@ import NetworkUtilities
 
 public final class NetworkClient: RequestProcessor {
     
-    public typealias  ChainResult  = (data: Data, response: HTTPURLResponse)
-    public typealias  StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
+    public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
     
     internal typealias ResultTask = Task<ChainResult, Swift.Error>
     
-    public typealias Interceptor       = InterceptorProtocol
-    public typealias StreamInterceptor = StreamInterceptorProtocol
+    public typealias Interceptor = InterceptorProtocol
     public typealias Decoder = DecoderProtocol & Sendable
     public typealias Logging = NetworkLogger   & Sendable
     
     package let interceptors       : [Interceptor]
-    package let streamInterceptors : [StreamInterceptor]
     package let apiErrorMapper : ResponseErrorMapper
     package let decoder : Decoder
     package let logging : Logging
     package let session : URLSession
     
-    internal let requestTasks = AtomicStorage<String, ResultTask>()
+    private let requestTasks = AtomicStorage<String, ResultTask>()
         
     public init(interceptors: [Interceptor] = [],
-                streamInterceptors: [StreamInterceptor] = [],
                 decoder: Decoder = .default.handlingOptionalResponses,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
-        self.streamInterceptors = streamInterceptors
         self.session = session ?? .shared
         self.decoder = decoder
         self.logging = logging

@@ -12,6 +12,8 @@ import NetworkClient
 
 extension NetworkClient: StreamProcessor {
 
+    public typealias  StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
+    
     public typealias StreamResponse<T: Sendable> =
         Response<StreamHandle<ServerSentEvent<T>>>
 
@@ -69,18 +71,18 @@ private extension NetworkClient {
     ) async throws -> StreamResult {
         try Task.checkCancellation()
 
-        guard interceptorIndex < streamInterceptors.count else {
+        //guard interceptorIndex < streamInterceptors.count else {
             return try await finalStreamFetch(request)
-        }
+        // }
 
-        let interceptor = streamInterceptors[interceptorIndex]
+        // let interceptor = streamInterceptors[interceptorIndex]
 
-        return try await interceptor.process(request) { [self] request in
-            try await processStreamRequest(
-                request,
-                interceptorIndex: interceptorIndex + 1
-            )
-        }
+        // return try await interceptor.process(request) { [self] request in
+        //     try await processStreamRequest(
+        //         request,
+        //         interceptorIndex: interceptorIndex + 1
+        //     )
+        // }
     }
 
     func finalStreamFetch(
