@@ -16,3 +16,10 @@ public extension URLRequest.Builder {
             formEncoder: DefaultFormEncoder()))
     }
 }
+
+
+public extension URLRequest {
+    func debugLog(with logger: any NetworkLogger = .default) {
+        logger.log(request: self, type: .info)
+    }
+}

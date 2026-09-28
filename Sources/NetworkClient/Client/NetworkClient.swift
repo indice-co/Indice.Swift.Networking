@@ -93,7 +93,22 @@ public final class NetworkClient: Sendable {
     }
 }
 
-private extension NetworkClient {
+extension NetworkClient {
+    
+    internal func validate(data: Data, response: URLResponse) async throws -> ChainResult {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw errorOfType(.invalidResponse)
+        }
+        
+        switch httpResponse.statusCode {
+        case 200...299:
+            logging.log(response: httpResponse, with: data, type: .info)
+            return (data, httpResponse)
+        default:
+            logging.log(response: httpResponse, with: data, type: .warning)
+            throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
+        }
+    }
     
     private func finalFetch(_ request: URLRequest) async throws -> ChainResult {
         
@@ -107,18 +122,7 @@ private extension NetworkClient {
             }
         }()
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw errorOfType(.invalidResponse)
-        }
-        
-        switch httpResponse.statusCode {
-        case 200...299:
-            logging.log(response: httpResponse, with: data, type: .info)
-            return (data, httpResponse)
-        default:
-            logging.log(response: httpResponse, with: data, type: .warning)
-            throw await apiErrorMapper.map(.init(response: httpResponse, data: data))
-        }
+        return try await validate(data: data, response: response)
     }
     
     private func processRequest(_ request: URLRequest, withInterceptors interceptors: [Interceptor]) async throws -> ChainResult {
@@ -176,89 +180,4 @@ private extension NetworkClient {
         
         return try await task.value
     }
-}
-
-public extension URLRequest {
-
-    internal static
-    let instanceCachingKey = UUID().uuidString
-    
-    internal static
-    let instanceHashingKey = UUID().uuidString
-    
-    func withInstanceCaching(
-        customHash: String? = nil
-    ) -> URLRequest {
-        var m = self
-        
-        m.set(header: .custom(
-            name: Self.instanceCachingKey,
-            value: "true"))
-        
-        if let customHash {
-            m.set(header: .custom(
-                name: Self.instanceHashingKey,
-                value: customHash))
-        }
-        
-        return m
-    }
-    
-    internal var shouldCacheInstance: Bool {
-        self.allHTTPHeaderFields?[Self.instanceCachingKey] == "true"
-    }
-    
-    internal var instanceHash: String? {
-        self.allHTTPHeaderFields?[Self.instanceHashingKey]
-    }
-    
-    func clearingInstanceCaching() -> URLRequest {
-        var m = self
-        
-        var headers = m.allHTTPHeaderFields ?? [:]
-        
-        headers.removeValue(forKey: Self.instanceCachingKey)
-        headers.removeValue(forKey: Self.instanceHashingKey)
-
-        m.allHTTPHeaderFields = headers
-
-        return m
-    }
-    
-    func stableKey() -> String {
-        var hasher = Hasher()
-
-        if
-            let url = self.url,
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        {
-            let scheme = components.scheme?.lowercased() ?? ""
-            let host = components.host?.lowercased() ?? ""
-            let port = components.port.map { ":\($0)" } ?? ""
-            let path = components.path
-
-            var normalizedQuery = ""
-            if let items = components.queryItems, !items.isEmpty {
-                let sorted = items.sorted { a, b in
-                    if a.name == b.name {
-                        return (a.value ?? "") < (b.value ?? "")
-                    }
-
-                    return a.name < b.name
-                }
-                normalizedQuery = sorted.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
-            }
-
-            let normalized = "\(scheme)://\(host)\(port)\(path)\(normalizedQuery.isEmpty ? "" : "?\(normalizedQuery)")"
-            hasher.combine(normalized)
-        } else {
-            hasher.combine(self.url?.absoluteString ?? "")
-        }
-
-        hasher.combine(self.method ?? .get)
-        hasher.combine(self.httpBody ?? .init())
-
-        return String(hasher.finalize())
-    }
-    
 }

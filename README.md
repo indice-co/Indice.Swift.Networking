@@ -10,7 +10,7 @@ Lightweight Swift networking utilities: a small HTTP client, request builders, e
 
 ## Requirements
 
-- Swift 5.10
+- Swift 6.3
 - iOS 13+ / macOS 10.15+
 
 ## Installation
@@ -127,14 +127,14 @@ let requestGET = try URLRequest.builder()
     .get(url: URL(string: "https://api.example.com/upload")!)
     .add(query: "param1", value: "value1")
     .add(query: "param2", value: "value2")
-    .add(header: .authorisation(auth: authToken))
+    .add(header: .authorization(auth: authToken))
     .build()
 
 let requestPOST = try URLRequest.builder()
     .post(url: URL(string: "https://api.example.com/upload")!)
     .bodyJson(of: Payload(name: "Alice"))
     .add(query: "param", value: "value")
-    .add(header: .authorisation(auth: authToken))
+    .add(header: .authorization(auth: authToken))
     .build()
 ```
 
@@ -223,7 +223,7 @@ struct AuthInterceptor: InterceptorProtocol {
         let accessToken = try tokenStorage.requireAuthorization
         
         let authorizedRequest = request
-            .setting(header: .authorisation(auth: accessToken))
+            .setting(header: .authorization(auth: accessToken))
 
         return try await next(authorizedRequest)
     }
@@ -299,7 +299,7 @@ struct SimpleAuthInterceptor: InterceptorProtocol {
         next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
     ) async throws -> NetworkClient.ChainResult {
         let token = try await tokenProvider()
-        let authorized = request.setting(header: .authorisation(auth: token))
+        let authorized = request.setting(header: .authorization(auth: token))
         return try await next(authorized)
     }
 }

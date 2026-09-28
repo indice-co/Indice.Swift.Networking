@@ -24,7 +24,7 @@ final class URLRequestBodyTests {
     func `single header (authorization)`() throws {
         let authHeader = URLRequest
             .HeaderType
-            .authorisation(auth: "some_jwt")
+            .authorization(auth: "some_jwt")
         
         let built = URLRequest
             .get(url: testURL)

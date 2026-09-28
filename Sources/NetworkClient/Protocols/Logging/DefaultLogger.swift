@@ -207,8 +207,8 @@ private extension DefaultLogger {
 
 public extension NetworkLogger where Self == DefaultLogger {
     
-    static func `default`(requestLevel: NetworkLoggingLevel  = .full,
-                          responseLevel: NetworkLoggingLevel = .full,
+    static func `default`(requestLevel: NetworkLoggingLevel,
+                          responseLevel: NetworkLoggingLevel,
                           headerMasks: [HeaderMasks] = [],
                           logFilter: LoggerFilter = .always,
                           logStream: LogStream = .default) -> NetworkLogger {

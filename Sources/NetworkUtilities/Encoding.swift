@@ -74,7 +74,7 @@ extension FormDataEncoder {
             if let array = value as? [Any] {
                 return array.map { entry in
                     let escapedValue = "\(entry)".urlEncodedOrEmpty
-                    return "\(key)[]=\(escapedValue)"
+                    return "\(escapedKey)[]=\(escapedValue)"
                 }.joined(separator: "&")
             } else {
                 let escapedValue = "\(value)".urlEncodedOrEmpty

@@ -1,4 +1,10 @@
 # Changelog
+## [1.5.3] - 2026-09-28
+
+### Changes
+- Minor internal fixes.
+- Various small deprecations
+
 
 ## [1.5.2] - 2026-01-21
 
