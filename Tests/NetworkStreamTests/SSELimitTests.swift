@@ -4,13 +4,22 @@ import Testing
 
 @Suite("SSE parser · malformed input and limits")
 struct SSELimitTests {
-    @Test func invalidUTF8ThrowsWhenTheLineEnds() throws {
+    @Test(arguments: [[UInt8(0xFF)], [0x80], [0xC2], [0xC0, 0xAF],
+                      [0xED, 0xA0, 0x80], [0xF4, 0x90, 0x80, 0x80]])
+    func invalidUTF8ThrowsWhenTheLineEnds(_ bytes: [UInt8]) throws {
         var parser = SSEParser()
-        #expect(try parser.consume(0xFF) == nil)
+        for byte in bytes {
+            #expect(try parser.consume(byte) == nil)
+        }
         do {
             _ = try parser.consume(10)
             Issue.record("Expected invalidUTF8")
         } catch SSEError.invalidUTF8 { }
+    }
+
+    @Test func aValidReplacementCharacterIsPreserved() throws {
+        var parser = SSEParser()
+        #expect(try parser.parse("data: \u{FFFD}\n\n").map(\.text) == ["\u{FFFD}"])
     }
 
     @Test func exactLineLimitIsAllowedButTheNextByteIsRejected() throws {
