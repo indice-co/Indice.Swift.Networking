@@ -12,10 +12,9 @@ import NetworkClient
 
 extension NetworkClient: StreamProcessor {
 
-    public typealias  StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
-    
-    public typealias StreamResponse<T: Sendable> =
-        Response<StreamHandle<ServerSentEvent<T>>>
+    typealias StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
+    public typealias DataType<T: Sendable> = StreamHandle<ServerSentEvent<T>>
+    public typealias StreamResponse<T: Sendable> = Response<DataType<T>>
 
     public func openSSEStream<Payload: Decodable & Sendable>(
         request: URLRequest
@@ -26,9 +25,12 @@ extension NetworkClient: StreamProcessor {
         request.set(header: .accept(type: .eventStream))
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
-        let result = try await processStreamRequest(request, interceptorIndex: 0)
+        let result: Response<URLSession.AsyncBytes> = try await processRequest(
+            request,
+            withInterceptors: interceptors,
+            transport: finalStreamFetch(_:))
 
-        let connection = result.stream.task
+        let connection = result.item.task
 
         // Until ownership transfers to the handle, failures must close
         // the connection here.
@@ -42,7 +44,7 @@ extension NetworkClient: StreamProcessor {
         try Task.checkCancellation()
 
         let reader = SSEReader<Payload>(
-            bytes: result.stream,
+            bytes: result.item,
             decoder: decoder
         )
 
@@ -58,39 +60,19 @@ extension NetworkClient: StreamProcessor {
         )
 
         handedOff = true
-        return .init(stream, httpResponse: result.response)
+        return .init(stream, httpResponse: result.httpResponse)
     }
 }
 
 
 private extension NetworkClient {
 
-    func processStreamRequest(
-        _ request: URLRequest,
-        interceptorIndex: Int
-    ) async throws -> StreamResult {
-        try Task.checkCancellation()
-
-        //guard interceptorIndex < streamInterceptors.count else {
-            return try await finalStreamFetch(request)
-        // }
-
-        // let interceptor = streamInterceptors[interceptorIndex]
-
-        // return try await interceptor.process(request) { [self] request in
-        //     try await processStreamRequest(
-        //         request,
-        //         interceptorIndex: interceptorIndex + 1
-        //     )
-        // }
-    }
-
     func finalStreamFetch(
         _ request: URLRequest
-    ) async throws -> StreamResult {
+    ) async throws -> Response<URLSession.AsyncBytes> {
         logging.log(request: request, type: .info)
 
-        let (bytes, response) = try await session.bytes(for: request)
+        let (bytes, response) = try await transport.bytes(for: request)
 
         var handedOff = false
         defer {
@@ -140,7 +122,7 @@ private extension NetworkClient {
         try Task.checkCancellation()
 
         handedOff = true
-        return (stream: bytes, response: validated.response)
+        return .init(bytes, httpResponse: validated.httpResponse)
     }
 }
 

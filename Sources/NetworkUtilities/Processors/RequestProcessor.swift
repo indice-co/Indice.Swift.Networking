@@ -17,7 +17,7 @@ public protocol RequestProcessor: Sendable {
 }
 
 /// The response Type of the `RequestProcessor`'s methods
-public struct NetworkResponse<T> {
+public struct NetworkResponse<T: Sendable> {
     public let item: T
     public let httpResponse: HTTPURLResponse
     

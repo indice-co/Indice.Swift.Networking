@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NetworkUtilities
 
 
 public struct LoggingInterceptor: NetworkClient.Interceptor {
@@ -28,14 +29,18 @@ public struct LoggingInterceptor: NetworkClient.Interceptor {
         self.logger = logger
     }
     
-    public func process(
+    public func process<T: Sendable>(
         _ request: URLRequest,
-        next: (URLRequest) async throws -> NetworkClient.ChainResult
-    ) async rethrows -> NetworkClient.ChainResult {
+        next: (URLRequest) async throws -> NetworkClient.Response<T>
+    ) async throws -> NetworkClient.Response<T> {
         do {
             logger.log(request: request, type: .info)
+            
             let response = try await next(request)
-            logger.log(response: response.response, with: response.data, type: .info)
+            let data = (response.item as? Data) ?? Data()
+            
+            logger.log(response: response.httpResponse, with: data, type: .info)
+            
             return response
         } catch {
             logger.log(error.localizedDescription, for: .response, type: .warning)
