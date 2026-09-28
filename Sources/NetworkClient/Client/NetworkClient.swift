@@ -40,7 +40,7 @@ public final class NetworkClient: RequestProcessor {
     }
     
     @available(*, deprecated, message: "use the default get(url:) function instead")
-    public func get<D: Decodable & Sendable>(path: String) async throws -> Response<D> {
+    public func get<D: Decodable>(path: String) async throws -> Response<D> {
         guard let url = URL(string: path) else {
             throw errorOfType(.invalidUrl(originalUrl: path))
         }
@@ -53,7 +53,7 @@ public final class NetworkClient: RequestProcessor {
         return .init((), httpResponse: result.httpResponse)
     }
     
-    public func fetch<D: Decodable & Sendable>(request: URLRequest) async throws -> Response<D> {
+    public func fetch<D: Decodable>(request: URLRequest) async throws -> Response<D> {
         let result = try await dataFetch(request: request)
         
         do {
