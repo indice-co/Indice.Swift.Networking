@@ -1,5 +1,5 @@
 # Changelog
-## [1.5.3] - 2026-XX-XX
+## [1.5.3] - 2026-09-28
 
 ### Changes
 - Minor internal fixes.

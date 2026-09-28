@@ -12,8 +12,7 @@ import Foundation
 
 public final class NetworkClient: Sendable {
     
-    public typealias  ChainResult  = (data: Data, response: HTTPURLResponse)
-    public typealias  StreamResult = (stream: URLSession.AsyncBytes, response: HTTPURLResponse)
+    public typealias  ChainResult = (data: Data, response: HTTPURLResponse)
     
     public struct Response<T>/*: Sendable where T: Sendable*/ {
         public let item: T
@@ -39,28 +38,24 @@ public final class NetworkClient: Sendable {
     
     internal typealias ResultTask = Task<ChainResult, Swift.Error>
     
-    public typealias Interceptor       = InterceptorProtocol
-    public typealias StreamInterceptor = StreamInterceptorProtocol
+    public typealias Interceptor = InterceptorProtocol
     public typealias Decoder = DecoderProtocol & Sendable
     public typealias Logging = NetworkLogger   & Sendable
     
-    internal let interceptors       : [Interceptor]
-    internal let streamInterceptors : [StreamInterceptor]
-    internal let apiErrorMapper : ResponseErrorMapper
-    internal let decoder : Decoder
-    internal let logging : Logging
-    internal let session : URLSession
+    private let interceptors   : [Interceptor]
+    private let apiErrorMapper : ResponseErrorMapper
+    private let decoder : Decoder
+    private let logging : Logging
+    private let session : URLSession
     
-    internal let requestTasks = AtomicStorage<String, ResultTask>()
+    private let requestTasks = AtomicStorage<String, ResultTask>()
         
     public init(interceptors: [Interceptor] = [],
-                streamInterceptors: [StreamInterceptor] = [],
                 decoder: Decoder = .default.handlingOptionalResponses,
                 logging: Logging = .default,
                 session: URLSession? = nil,
                 apiErrorMapper: ResponseErrorMapper = .default) {
         self.interceptors = interceptors
-        self.streamInterceptors = streamInterceptors
         self.session = session ?? .shared
         self.decoder = decoder
         self.logging = logging
