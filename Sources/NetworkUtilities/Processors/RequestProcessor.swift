@@ -16,6 +16,12 @@ public protocol RequestProcessor: Sendable {
     func fetch<D: Decodable>(request: URLRequest) async throws -> Response<D>
 }
 
+public extension RequestProcessor {
+    func fetch<D: Decodable>(_ type: D.Type, request: URLRequest) async throws -> Response<D> {
+        try await fetch(request: request)
+    }
+}
+
 /// The response Type of the `RequestProcessor`'s methods
 /// Sendable when the wrapped item is Sendable.
 public struct NetworkResponse<T> {
