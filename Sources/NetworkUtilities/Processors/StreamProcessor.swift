@@ -12,16 +12,19 @@ import Foundation
 /// The response type is `StreamHandle<Payload>`, that is the async iterator of the stream.
 public protocol StreamProcessor: Sendable {
 
+    typealias StreamResponse<T> = NetworkResponse<StreamHandle<ServerSentEvent<T>>>
+    
     func openSSEStream<Payload: Decodable & Sendable>(
         request: URLRequest
-    ) async throws -> NetworkResponse<StreamHandle<ServerSentEvent<Payload>>>
+    ) async throws -> StreamResponse<Payload>
 }
 
 public extension StreamProcessor {
+    
     func openSSEStream<Payload: Decodable & Sendable>(
         _ type: Payload.Type,
         request: URLRequest
-    ) async throws -> NetworkResponse<StreamHandle<ServerSentEvent<Payload>>> {
+    ) async throws -> StreamResponse<Payload> {
         try await openSSEStream(request: request)
     }
 }
