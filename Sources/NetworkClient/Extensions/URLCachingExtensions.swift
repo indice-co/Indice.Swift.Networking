@@ -1,33 +1,28 @@
 //
-//  URLRequestExtensions.swift
+//  URLCachingExtensions.swift
+//  NetworkClient
 //
+//  Created by Nikolas Konstantakopoulos on 6/10/26.
 //
-//  Created by Nikolas Konstantakopoulos on 30/7/24.
-//
-//  NetworkUtilities — URLRequest convenience starters
-//  Small convenience extensions that expose `URLRequest.get/put/post/...`
-//  builder entry points to start fluent request construction.
-
 
 import Foundation
 
-public extension URLRequest {
+package extension URLRequest {
     
-    static func get   (url: URL) -> URLRequest.QueryBuilder { builder().get   (url: url) }
-    static func put   (url: URL) -> URLRequest.BodyBuilder  { builder().put   (url: url) }
-    static func post  (url: URL) -> URLRequest.BodyBuilder  { builder().post  (url: url) }
-    static func patch (url: URL) -> URLRequest.BodyBuilder  { builder().patch (url: url) }
-    static func delete(url: URL) -> URLRequest.QueryBuilder { builder().delete(url: url) }
+    static let instanceCachingKey = UUID().uuidString
+    static let instanceHashingKey = UUID().uuidString
+    
+    var shouldCacheInstance: Bool {
+        self.allHTTPHeaderFields?[Self.instanceCachingKey] == "true"
+    }
+    
+    var instanceHash: String? {
+        self.allHTTPHeaderFields?[Self.instanceHashingKey]
+    }
+
 }
-
-
-public extension URLRequest {
-
-    package static
-    let instanceCachingKey = UUID().uuidString
     
-    package static
-    let instanceHashingKey = UUID().uuidString
+public extension URLRequest {
     
     func withInstanceCaching(
         customHash: String? = nil
@@ -47,13 +42,6 @@ public extension URLRequest {
         return m
     }
     
-    package var shouldCacheInstance: Bool {
-        self.allHTTPHeaderFields?[Self.instanceCachingKey] == "true"
-    }
-    
-    package var instanceHash: String? {
-        self.allHTTPHeaderFields?[Self.instanceHashingKey]
-    }
     
     func clearingInstanceCaching() -> URLRequest {
         var m = self

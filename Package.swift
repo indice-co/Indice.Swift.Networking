@@ -8,47 +8,50 @@ let package = Package(
     platforms: [.iOS(.v13), .macOS(.v10_15)],
     products: [
         .library(
-            name: "NetworkUtilities",
-            targets: ["NetworkUtilities"]),
-        .library(
             name: "NetworkClient",
             targets: ["NetworkClient"]),
         .library(
             name: "NetworkStream",
             targets: ["NetworkStream"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/indice-co/Indice.HTTP.Swift", .upToNextMajor(from: "1.0.0"))
+    ],
     targets: [
         .target(
-            name: "NetworkUtilities"
-        ),
-        .target(
             name: "NetworkClient",
-            dependencies: ["NetworkUtilities"]
+            dependencies: [
+                .product(name: "NetworkUtilities", package: "Indice.HTTP.Swift")
+            ]
         ),
         .target(
             name: "NetworkStream",
             dependencies: [
                 "NetworkClient",
-                "NetworkUtilities"]
+                .product(name: "NetworkUtilities", package: "Indice.HTTP.Swift")]
         ),
         // Shared fixtures are built only by the test targets; no library product exposes them.
         .target(
             name: "NetworkTestSupport",
-            dependencies: ["NetworkClient", "NetworkUtilities"],
+            dependencies: [
+                "NetworkClient",
+                .product(name: "NetworkUtilities", package: "Indice.HTTP.Swift")],
             path: "Tests/NetworkTestSupport"
         ),
         .testTarget(
             name: "NetworkClientTests",
-            dependencies: ["NetworkClient", "NetworkTestSupport"]
+            dependencies: [
+                "NetworkClient",
+                "NetworkTestSupport",
+                .product(name: "NetworkUtilities", package: "Indice.HTTP.Swift")],
         ),
         .testTarget(
             name: "NetworkStreamTests",
-            dependencies: ["NetworkStream", "NetworkTestSupport"]
+            dependencies: [
+                "NetworkStream",
+                "NetworkTestSupport",
+                .product(name: "NetworkUtilities", package: "Indice.HTTP.Swift")],
         ),
-        .testTarget(
-            name: "NetworkUtilitiesTests",
-            dependencies: ["NetworkUtilities", "NetworkTestSupport"]
-        )
     ],
     swiftLanguageModes: [.v6],
 )
