@@ -6,26 +6,14 @@
 //
 
 import Foundation
+import NetworkUtilities
 
 
 public protocol InterceptorProtocol: Sendable {
-    typealias Result = NetworkClient.ChainResult
+    typealias Result = NetworkClient.Response
     
-    func process(
+    func process<T: Sendable>(
         _ request: URLRequest,
-        next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
-    ) async throws -> NetworkClient.ChainResult
-}
-
-public struct NoOpAdapter : InterceptorProtocol {
-    public func process(
-        _ request: URLRequest,
-        next: @Sendable (URLRequest) async throws -> NetworkClient.ChainResult
-    ) async throws -> NetworkClient.ChainResult {
-        try await next(request)
-    }
-}
-
-public extension InterceptorProtocol where Self == NoOpAdapter {
-    static var noOp: InterceptorProtocol { NoOpAdapter() }
+        next: @Sendable (URLRequest) async throws -> Result<T>
+    ) async throws -> Result<T>
 }

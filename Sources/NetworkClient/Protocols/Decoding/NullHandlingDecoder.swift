@@ -45,12 +45,12 @@ public final class NullHandlingDecoder: NetworkClient.Decoder {
         /* TODO: Concrete handling for "nullable"/204 responses
          
          If Data is empty, this means a "null" response.
-         Should make this concrete by cheking the status code (204 probably)
+         Should make this concrete by checking the status code (204 probably)
          or enable different return types by status code.
          */
         // TODO: Maybe this can be replaced by a more dynamic "decoding strategy"
         // i.e. check the status code, decode accordingly.
-        // Also, decoding could be also not lazily on a `Response.item` getter.
+        // Also, decoding could be also done lazily on a `Response.item` getter.
         guard !data.isEmpty else {
             return Optional<any Decodable>.none as! T
         }

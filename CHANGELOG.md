@@ -1,4 +1,22 @@
 # Changelog
+
+
+## [2.0.0] - 2026-10-23
+
+### Breaking changes
+- Moved `NetworkUtilities` to its own swift package.
+    - Available via [Indice.HTTP.Swift](https://github.com/indice-co/Indice.HTTP.Swift) repo.
+    - `NetworkClient` still uses and imports it as `NetworkUtilities`.  
+
+### Changes
+- Add `RequestProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes HTTP operations.
+- Add `StreamProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes SSE Stream operations.
+
+### News
+- Add support for `ServerSentEvent` streams, available via the `NetworkClient.openSSEStream` operation.
+    - SSE Stream functionality requires to import the `NetworkStream` module.
+    
+
 ## [1.5.3] - 2026-09-28
 
 ### Changes
@@ -42,7 +60,7 @@
   This behavior now has to be opted-in, using the extension `URLRequest.withInstanceCaching()`.
 - Minumum OSs bumped to iOS 14, macOS 11.
 - Conformance to Swift6 strict concurrency cause changes to various signatures and definitions. 
-- `NetworClient.Interceptor` renamed `process(_:completion:)` to `process(_:next:)` to better imply the chain process. 
+- `NetworkClient.Interceptor` renamed `process(_:completion:)` to `process(_:next:)` to better imply the chain process. 
 
 
 
