@@ -1,7 +1,7 @@
 # Changelog
 
 
-## [2.0.0] - 2026-XX-XX
+## [2.0.0] - 2026-10-23
 
 ### Breaking changes
 - Moved `NetworkUtilities` to its own swift package.
