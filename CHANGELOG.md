@@ -1,16 +1,21 @@
 # Changelog
 
 
-## [2.0.0-beta] - 2026-XX-XX
+## [2.0.0] - 2026-XX-XX
+
+### Breaking changes
+- Moved `NetworkUtilities` to its own swift package.
+    - Available via [Indice.HTTP.Swift](https://github.com/indice-co/Indice.HTTP.Swift) repo.
+    - `NetworkClient` still uses and imports it as `NetworkUtilities`.  
+
+### Changes
+- Add `RequestProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes HTTP operations.
+- Add `StreamProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes SSE Stream operations.
 
 ### News
 - Add support for `ServerSentEvent` streams, available via the `NetworkClient.openSSEStream` operation.
     - SSE Stream functionality requires to import the `NetworkStream` module.
     
-### Changes
-- Add `RequestProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes HTTP operations.
-- Add `StreamProcessor` to `NetworkUtilities`. A protocol, that the `NetworkClient` already conforms to, that exposes SSE Stream operations.
-
 
 ## [1.5.3] - 2026-09-28
 
